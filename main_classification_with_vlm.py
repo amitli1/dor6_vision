@@ -50,62 +50,79 @@ def img_to_content(path):
 
 def get_classification_prompt(target_img_path):
 
-    # viewed from a distance
-    # a military vehicle in a close-up view,
+    # I want to use gemma3-4B for classifcation between objects (weapon systems) in the image .
+    # (The background may change, the weapon system in the image is matter)
+    # I want to add few shots example (with those 3 images) (each image contains one weapon systems)
+    # please write me description for each image, that I will copy it to the prompt of few shots examples, so the VLM will understand how to classify
 
-    sa_22_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/SA-22_CROP_1.jpg"
-    sa_22_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/SA-22_CROP_2.jpg"
+    sa_22_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-21-02_1244400_1020.jpg"
+    sa_22_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-20-27_844400_795.jpg"
+    sa_22_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-17-44_444400_588.jpg"
 
-    scud_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/SCUD_CROP_1.jpg"
-    scud_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/SCUD_CROP_2.jpg"
-    scud_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/SCUD_CROP_3.jpg"
+    scud_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/11-21-10_1324400_673.jpg"
+    scud_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/11-17-54_524400_136.jpg"
+    scud_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/11-20-34_884400_1224.jpg"
 
-    t90_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/T-90_CROP_1.jpg"
-    t90_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/T-90_CROP_2.jpg"
-    t90_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/T-90_CROP_3.jpg"
+    t_90_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-20-40_924400_731.jpg"
+    t_90_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-18-04_484400_633.jpg"
+    t_90_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-21-17_1284400_1530.jpg"
 
-    sa_22_txt_1 = "The image shows a military weapon system in a close-up view, mounted on a wheeled platform resembling a truck. The structure includes a vehicle-like chassis with multiple wheels for mobility. On both sides of the vehicle, there are mounted artillery cannons, suggesting a mobile firepower system designed for combat or defense purposes. Additionally, a large front window is visible at the front of the vehicle, indicating a driver or operator cabin within the system."
-    sa_22_txt_2 = "The image shows a military weapon system viewed from a distance, mounted on a wheeled platform resembling a truck. The structure includes a vehicle-like chassis with multiple wheels for mobility. On both sides of the vehicle, there are mounted artillery cannons, suggesting a mobile firepower system designed for combat or defense purposes. Additionally, a large front window is visible at the front of the vehicle, indicating a driver or operator cabin within the system."
+    sa_22_txt_1 = "An overhead view shows a large wheeled military vehicle with a long rectangular chassis and multiple axles. The vehicle carries a rear‑mounted box‑shaped module that occupies most of the vehicle length. The top profile is flat and angular, with no visible gun barrel or turret. The overall silhouette is elongated and truck‑like, indicating a vehicle designed to carry a launcher or payload rather than direct‑fire weapons"
+    sa_22_txt_2 = "An overhead image shows a large wheeled military vehicle with a long, rectangular truck‑like chassis and multiple axles. A box‑shaped rear superstructure occupies much of the vehicle length. The top profile is flat and angular, with no visible turret or gun barrel. The vehicle’s silhouette is elongated and modular, dominated by a rear-mounted payload rather than a compact fighting compartment."
+    sa_22_txt_3 = "An overhead image shows a wheeled military vehicle with an elongated rectangular chassis and multiple axles. The vehicle has a large, box‑shaped rear superstructure occupying much of the vehicle length. The top surface is flat and angular, with no visible turret, cannon, or forward‑pointing gun barrels. The overall silhouette is long and modular, dominated by a rear-mounted payload rather than a compact fighting compartment."
 
-    scud_text_1 = "The image shows a military weapon system in a close-up view, mounted on a truck with wheels for mobility. The truck is used as a ballistic missile launcher and carries a single large, long missile mounted on its platform."
-    scud_text_3 = "The image shows a military weapon system viewed from a distance, mounted on a truck with wheels for mobility. The truck is used as a ballistic missile launcher and carries a single large, long missile mounted on its platform."
+    scud_txt_1 = "An aerial image depicts a multi‑axle wheeled vehicle with a cylindrical launcher tube mounted along the centerline of the chassis. The launcher is long, rounded, and raised above the vehicle body, extending nearly the full length of the platform. The vehicle has a distinct separation between the driving cab and the launcher system. No gun barrels or rotating turret are visible"
+    scud_txt_2 = "An aerial view depicts a multi‑axle wheeled vehicle carrying a single long cylindrical launcher tube mounted along the vehicle’s centerline. The tube is rounded, smooth, and elevated above the chassis, extending nearly the full length of the vehicle. The launcher is visually distinct from the cab area. No turret or direct‑fire gun barrels are visible"
+    scud_txt_3 = "An aerial view depicts a multi‑axle wheeled vehicle carrying a single long cylindrical launcher tube mounted along the vehicle’s centerline. The tube is rounded, uniform in diameter, and elevated above the chassis, extending nearly the full length of the vehicle. The launcher structure is visually distinct from the cab area. There are no rotating turrets or direct‑fire gun barrels visible."
 
-    t_90_text_1 = "The image shows a tank in a close-up view, with a long, protruding barrel mounted on the turret. In the image there are no wheels, instead it has tracks that allow it to move on terrain. It has a cannon that extends outward beyond the front of the vehicle"
-    t_90_text_3 = "The image shows a tank viewed from a distance, with a long, protruding barrel mounted on the turret. In the image there are no wheels, instead it has tracks that allow it to move on terrain. It has a cannon that extends outward beyond the front of the vehicle"
+    t_90_txt_1 = "Top‑down aerial image of a tracked or heavy wheeled armored vehicle traveling on a paved road. The vehicle features a central rotating turret mounted on top of the hull. A long gun barrel extends forward from the turret, clearly visible and projecting beyond the front of the vehicle. The hull is compact and rectangular, significantly shorter than launcher trucks. The defining feature is the turret‑mounted cannon rather than a rear launcher system."
+    t_90_txt_2 = "Aerial image of an armored vehicle positioned near a shoreline. The vehicle has a solid armored hull and a turret mounted centrally on top. A gun barrel extends outward from the turret, forming a distinct protruding weapon. The vehicle is compact compared to long launcher trucks and lacks cylindrical missile tubes or large rear containers. The turret and barrel are the primary identifying elements."
+    t_90_txt_3 = "Top‑down aerial view of an armored combat vehicle on flat, open terrain. The vehicle has a low‑profile hull with a centrally mounted turret. One or more gun barrels are visible extending from the turret. The overall shape is compact and dense, with armor plates and no elongated launcher structures. The presence of a turret and direct‑fire gun differentiates this vehicle from launcher or missile carrier systems."
+
 
     # VLLM:
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Classify the following images into: Class_1, Class_2, or Class_3."},
-                {"type": "text", "text": "Here are examples:"},
+                {"type": "text", "text": "Classify the weapon system based only on the vehicle structure and mounted weapon system. Ignore background, terrain, and camera angle."},
+                {"type": "text", "text": "Examples:"},
 
                 # Shot 1
                 img_to_content(sa_22_path_1),
-                {"type": "text", "text": sa_22_txt_1+ "\nAnswer: Class_1"},
+                {"type": "text", "text": sa_22_txt_1+ "\nAnswer: class_1"},
 
                 img_to_content(sa_22_path_2),
-                {"type": "text", "text": sa_22_txt_2 + "\nAnswer: Class_1"},
+                {"type": "text", "text": sa_22_txt_2 + "\nAnswer: class_1"},
+
+                img_to_content(sa_22_path_3),
+                {"type": "text", "text": sa_22_txt_3 + "\nAnswer: class_1"},
 
                 # Shot 2
                 img_to_content(scud_path_1),
-                {"type": "text", "text": scud_text_1+ "\nAnswer: Class_2"},
+                {"type": "text", "text": scud_txt_1+ "\nAnswer: class_2"},
+
+                img_to_content(scud_path_2),
+                {"type": "text", "text": scud_txt_2 + "\nAnswer: class_2"},
 
                 img_to_content(scud_path_3),
-                {"type": "text", "text": scud_text_3 + "\nAnswer: Class_2"},
+                {"type": "text", "text": scud_txt_3 + "\nAnswer: class_2"},
 
                 # Shot 3
-                img_to_content(t90_path_1),
-                {"type": "text", "text": t_90_text_1+ "\nAnswer: Class_3"},
+                img_to_content(t_90_path_1),
+                {"type": "text", "text": t_90_txt_1+ "\nAnswer: class_3"},
 
-                img_to_content(t90_path_3),
-                {"type": "text", "text": t_90_text_3 + "\nAnswer: Class_3"},
+                img_to_content(t_90_path_2),
+                {"type": "text", "text": t_90_txt_2+ "\nAnswer: class_3"},
+
+                img_to_content(t_90_path_3),
+                {"type": "text", "text": t_90_txt_3+ "\nAnswer: class_3"},
+
 
                 # Query image
                 img_to_content(target_img_path),
                 {"type": "text",
-                 "text": "Based on the examples above, which class does this image belong to? Answer only: Class_1, Class_2, or Class_3."}
+                 "text": "Based on the examples above, which class does this image belong to? Answer only: 'class_1', 'class_2', or 'class_3'."}
             ]
         }
     ]
@@ -179,9 +196,9 @@ def send_to_vllm(client, prompt_func, image_path):
 
 def run_train_classifcation(client):
 
-    d_convert = {"Class_1": "SA-22",
-                 "Class_2": "SCUD",
-                 "Class_3": "T-90"}
+    d_convert = {"class_1": "SA-22",
+                 "class_2": "SCUD",
+                 "class_3": "T-90"}
 
     l_jpg_file   = []
     l_gt         = []
@@ -197,7 +214,10 @@ def run_train_classifcation(client):
         #full_scale_file_path = f"{TRAIN_FULL_MODE_FILES_PATH}{jpg_file}"
 
         classification = send_to_vllm(client, get_classification_prompt, full_crop_file_path)
-        classification = d_convert[classification]
+        if classification not in d_convert.keys():
+            print(f"{jpg_file} = {classification}")
+        else:
+            classification = d_convert[classification]
 
         l_jpg_file .append(jpg_file)
         l_gt .append(gt)
