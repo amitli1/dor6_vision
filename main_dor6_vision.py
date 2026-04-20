@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     df = pd.read_csv("/home/amitli/repo/dor6_vision/results/test_set_crop_prediction.csv")
 
-    i       = 87
+    i       = 100
     jpg_file = df["jpg_file"].values[i]
     full_file_path = f"/home/amitli/repo/dor6_vision/Dataset/test_set/{jpg_file}"
     point_x = df["point_x"].values[i]
