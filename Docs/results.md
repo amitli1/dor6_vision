@@ -9,7 +9,8 @@ T-90    7.71   0.63  91.66
 ```
 
 ### google/gemma-4-31B-it (50% samples):
-Note: 3 classes + None
+1. Prediction: 3 classes + None
+2. just 26 samples got NOne
 ```
         SA-22   SCUD   T-90
  SA-22  90.65   3.94   5.42
