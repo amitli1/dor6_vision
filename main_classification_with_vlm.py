@@ -125,7 +125,8 @@ def get_classification_prompt(target_img_path, extrernal_prompt=None):
                 # {"type": "text",
                 #  "text": "Analyze the provided image. First, describe the primary object's shape and visible features. Second, based on those features, classify the object into one of the following categories"},
                 {"type": "text",
-                 "text": "Based on the examples above, which class does this image belong to? Answer only: 'class_1', 'class_2', 'class_3'."}
+#                 "text": "Based on the examples above, which class does this image belong to? Answer only: 'class_1', 'class_2', 'class_3' or 'Nothing'."}
+                   "text": "Based on the examples above, which class does this image belong to? If the image does not fit any of the three, answer 'none'. Answer only: 'class_1', 'class_2', 'class_3', or 'none'."}
             ]
         }
     ]
@@ -152,7 +153,8 @@ def plot_img_with_run_classification(image_path, classifcation):
 def send_to_vllm(client, prompt_func, image_path, external_prompt=None):
     messages = prompt_func(image_path, external_prompt)
     response = client.chat.completions.create(
-        model="/model_path",
+        #model="/model_path",
+        model = "google/gemma-4-31B-it",
         messages=messages,
     )
     res_text = response.choices[0].message.content
@@ -170,7 +172,7 @@ def run_train_classifcation(client):
     l_prediction = []
 
     df_train_crop = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv')
-    df_train_crop = df_train_crop.sample(frac=0.15)
+    df_train_crop = df_train_crop.sample(frac=0.50)
     for i in tqdm(range(len(df_train_crop))):
         jpg_file = df_train_crop.jpg_file.values[i]
         gt       = df_train_crop['gt'].values[i]
@@ -180,6 +182,8 @@ def run_train_classifcation(client):
 
         classification = send_to_vllm(client, get_classification_prompt, full_crop_file_path)
         classification = classification.strip()
+        if classification.find('Answer:') != -1:
+            classification = classification[7:].strip()
         if classification not in d_convert.keys():
             print(f"{jpg_file} = {classification}")
         else:
@@ -233,52 +237,17 @@ def eda_few_shots(client):
 
 if __name__ == "__main__":
 
-
-
-    # Confusion Matrix (Percentages):
-    #        SA-22   SCUD   T-90
-    # SA-22  64.19   4.46  31.35
-    # SCUD   37.01  55.39   7.60
-    # T-90    0.85   0.14  99.01
-
-    # T90 as SCUD # '11-18-04_484400_892.jpg', '11-18-04_484400_727.jpg', '11-18-04_484400_435.jpg'
-    # SCUD as T-90 # '11-21-10_1324400_1299.jpg', '11-21-10_1324400_1117.jpg', '11-21-10_1324400_1617.jpg'
-    # SA-22 as SCUD # 11-20-27_844400_280.jpg, 11-17-44_444400_1275.jpg, 11-17-44_444400_819.jpg
-    # SA-22 as T-90 # 11-17-44_444400_1407.jpg, 11-21-02_1244400_1314.jpg, 11-17-44_444400_1626.jpg
-    # df = pd.read_csv('/home/amitli/repo/dor6_vision/results/train_crop_vlm_classification.csv')
-    # df_sa22_as_scud = df[df['gt'] == 'SA-22']
-    # df_sa22_as_scud = df_sa22_as_scud[df_sa22_as_scud.prediction == 'T-90']
-    # print(df_sa22_as_scud.jpg_file.values)
-    # exit(0)
-
-    # client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
-    # full_crop_file= f"{TRAIN_CROP_FILES}11-17-44_444400_1275.jpg"
-    # description = send_to_vllm(client, get_image_description_prompt, full_crop_file)
-    # print(description)
-    # classification = send_to_vllm(client, get_classification_prompt, full_crop_file)
-    # print(classification)
-    # exit(0)
-
-
     RUN_TRAIN = True
 
     client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
-    None
 
     # eda_few_shots(client)
     # exit(0)
 
-    # Confusion Matrix (Percentages):
-    #        SA-22   SCUD   T-90
-    # SA-22  34.02   9.31  56.66
-    # SCUD    1.51  63.43  35.06
-    # T-90    0.00   0.51  99.49
 
     if RUN_TRAIN:
         run_train_classifcation(client)
         exit(0)
-
-
 
 
     RUN_ON_TEST_SET = False
@@ -304,3 +273,48 @@ if __name__ == "__main__":
             #print(f"file = {file}")
 
 
+ # Confusion Matrix (Percentages):
+    #        SA-22   SCUD   T-90
+    # SA-22  34.02   9.31  56.66
+    # SCUD    1.51  63.43  35.06
+    # T-90    0.00   0.51  99.49
+
+    #  gemma 4 - no nOne ((15%))
+    # Confusion Matrix (Percentages):
+    #        SA-22   SCUD   T-90
+    # SA-22  93.35   3.58   3.07
+    # SCUD    9.75  88.00   2.25
+    # T-90    4.99   0.00  95.01
+
+    #  gemma 4 - with nOne (15%)
+    # /home/amitli/repo/dor6_vision/.venv/bin/python /home/amitli/repo/dor6_vision/main_classification_with_vlm.py
+    #   8%|▊         | 198/2364 [02:09<20:40,  1.75it/s]11-17-44_444400_696.jpg = none
+    #  24%|██▎       | 561/2364 [06:07<18:10,  1.65it/s]11-21-02_1244400_967.jpg = none
+    #  29%|██▉       | 693/2364 [07:36<22:58,  1.21it/s]11-18-04_484400_193.jpg = Please provide the image you would like me to classify.
+    #  41%|████      | 959/2364 [10:35<14:56,  1.57it/s]11-20-27_844400_323.jpg = none
+    #  48%|████▊     | 1126/2364 [12:30<13:50,  1.49it/s]11-21-02_1244400_1327.jpg = none
+    #  49%|████▊     | 1150/2364 [12:46<13:24,  1.51it/s]11-21-02_1244400_1341.jpg = none
+    #  59%|█████▉    | 1394/2364 [15:02<10:38,  1.52it/s]11-21-17_1284400_92.jpg = Please provide the image you would like me to classify.
+    #  88%|████████▊ | 2073/2364 [21:02<02:09,  2.24it/s]11-21-02_1244400_1527.jpg = none
+    # 100%|██████████| 2364/2364 [23:23<00:00,  1.68it/s]
+    #
+    # Confusion Matrix (Percentages):
+    #        SA-22   SCUD   T-90
+    # SA-22  90.86   4.82   4.31
+    # SCUD    6.35  92.45   1.20
+    # T-90    3.27   0.14  96.59
+
+    #gemma 4 - with nOne (15%)
+    # /home/amitli/repo/dor6_vision/.venv/bin/python /home/amitli/repo/dor6_vision/main_classification_with_vlm.py
+    #  10%|▉         | 229/2364 [02:01<19:36,  1.81it/s]11-17-44_444400_291.jpg = none
+    #  31%|███       | 733/2364 [06:37<16:23,  1.66it/s]11-21-02_1244400_1156.jpg = none
+    #  35%|███▍      | 821/2364 [07:25<13:42,  1.88it/s]11-20-40_924400_960.jpg = none
+    #  57%|█████▋    | 1359/2364 [12:13<08:29,  1.97it/s]11-21-02_1244400_18.jpg = none
+    #  83%|████████▎ | 1955/2364 [17:29<03:19,  2.05it/s]11-21-02_1244400_967.jpg = none
+    # 100%|██████████| 2364/2364 [21:04<00:00,  1.87it/s]
+    #
+    # Confusion Matrix (Percentages):
+    #        SA-22   SCUD   T-90
+    # SA-22  91.52   3.37   5.11
+    # SCUD    5.97  92.04   1.99
+    # T-90    2.92   0.00  97.08
