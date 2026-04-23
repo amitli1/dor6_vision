@@ -9,8 +9,8 @@ import umap
 import plotly.express as px
 import matplotlib.pyplot as plt
 
-ZOOM_DATA_DIR = r'/home/amitli/repo/dor6_vision/Dataset/zoom_files/'
-CROP_DATA_DIR = r'/home/amitli/repo/dor6_vision/Dataset/crop_files/'
+from app_config.settings import CSV_TRAIN_EMBEDDING_FILE, TRAIN_CROP_FILES
+
 
 def load_model(model_name , device):
     processor = AutoImageProcessor.from_pretrained(model_name)
@@ -110,12 +110,13 @@ def plot_umap_plotly_df(df_file_name, plot_file_name):
 if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"device = {device}")
     processor, model = load_model(f"facebook/dinov2-base", device)
     create_embeddings(model, processor, device, "/home/amitli/repo/dor6_vision/Dataset/train.csv",
-                      CROP_DATA_DIR,
-                      "/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv")
+                      TRAIN_CROP_FILES,
+                      CSV_TRAIN_EMBEDDING_FILE)
 
-    run_umap("/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv",
+    run_umap(CSV_TRAIN_EMBEDDING_FILE,
              "/home/amitli/repo/dor6_vision/Dataset/umap_train_crop.csv")
 
     plot_umap_df("/home/amitli/repo/dor6_vision/Dataset/umap_train_crop.csv")

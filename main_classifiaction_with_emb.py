@@ -37,16 +37,21 @@ if __name__ == '__main__':
 
     wsc = WeaponSystemClassification(use_knn=True)
     wsc.get_per_class_confidence(r'/home/amitli/repo/ball.jpg')
-    #
-    # pointingAgent = PointingAgent()
-    # pointingAgent.run_molmo_prediction(r'/home/amitli/repo/ball.jpg')
 
-    #run_full_pipeline(wsc, pointingAgent)
+    TRAIN = False
+
+    if TRAIN:
+        pointingAgent = PointingAgent()
+        pointingAgent.run_molmo_prediction(r'/home/amitli/repo/ball.jpg')
+
+        run_full_pipeline(wsc, pointingAgent)
 
     df_test_crop         = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/test_set_point.csv')
     l_classifcation_pred = []
     for i in tqdm(range(len(df_test_crop))):
         jpg_file  = df_test_crop['jpg_file'].values[i]
+        if jpg_file != 'frame_1170.jpg':
+            continue
         crop_file = f"{TEST_CROP_FILES_PATH}/{jpg_file}"
         classifcation_pred = wsc.get_per_class_confidence(crop_file)
         l_classifcation_pred.append(classifcation_pred)

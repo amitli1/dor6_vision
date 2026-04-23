@@ -20,7 +20,7 @@ def encode_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
-def get_image_description_prompt(target_img):
+def get_image_description_prompt(target_img, description_prompt):
 
     # vllm
     base64_img = encode_image(target_img)
@@ -28,7 +28,7 @@ def get_image_description_prompt(target_img):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Describe the image"},
+                {"type": "text", "text": description_prompt},
                 {
                     "type": "image_url",
                     "image_url": {
@@ -48,36 +48,36 @@ def img_to_content(path):
         },
     }
 
-def get_classification_prompt(target_img_path):
+def get_classification_prompt(target_img_path, extrernal_prompt=None):
 
     # I want to use gemma3-4B for classifcation between objects (weapon systems) in the image .
     # (The background may change, the weapon system in the image is matter)
     # I want to add few shots example (with those 3 images) (each image contains one weapon systems)
     # please write me description for each image, that I will copy it to the prompt of few shots examples, so the VLM will understand how to classify
 
-    sa_22_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-21-02_1244400_1020.jpg"
+    #sa_22_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-21-02_1244400_1020.jpg"
     sa_22_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-20-27_844400_795.jpg"
-    sa_22_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-17-44_444400_588.jpg"
+    sa_22_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-17-44_444400_23.jpg"
+
+    #sa_22_txt_1 = "An overhead view shows a large wheeled military vehicle with a long rectangular chassis and multiple axles. The vehicle carries a rear‑mounted box‑shaped module that occupies most of the vehicle length. The top profile is flat and angular, with no visible gun barrel or turret. The overall silhouette is elongated and truck‑like, indicating a vehicle designed to carry a launcher or payload rather than direct‑fire weapons"
+    sa_22_txt_2 = "The image shows a tracked with long, rectangular body with a low profile."
+    sa_22_txt_3 = "The image shows a multi-wheeled truck. The front section is a cab with a flat windshield and a narrow profile, with side mirrors. It appears to have six wheels arranged in pairs along the chassis. The rear section has a raised, rectangular launch system holding multiple long, missile-like objects arranged in rows. There also appear to be exhaust pipes on the sides"
 
     scud_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/11-21-10_1324400_673.jpg"
     scud_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/11-17-54_524400_136.jpg"
     scud_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/11-20-34_884400_1224.jpg"
 
+    scud_txt_1 = "The image shows a long, rectangular vehicle with a multi-wheeled chassis. It has a cab at the front and a long, enclosed cargo or equipment section behind it."
+    scud_txt_2 = "The image shows a long, rectangular vehicle with a cab at the front. A long cylindrical object (likely a missile) is mounted on top, extending significantly beyond the cab. The vehicle has multiple wheels—at least six are visible—arranged in pairs along its length"
+    scud_txt_3 = "The image shows a long, rectangular vehicle with a cylindrical object (likely a missile) mounted on top."
+
     t_90_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-20-40_924400_731.jpg"
-    t_90_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-18-04_484400_633.jpg"
-    t_90_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-21-17_1284400_1530.jpg"
+    #t_90_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-18-04_484400_633.jpg"
+    t_90_path_3 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/11-21-17_1284400_311.jpg"
 
-    sa_22_txt_1 = "An overhead view shows a large wheeled military vehicle with a long rectangular chassis and multiple axles. The vehicle carries a rear‑mounted box‑shaped module that occupies most of the vehicle length. The top profile is flat and angular, with no visible gun barrel or turret. The overall silhouette is elongated and truck‑like, indicating a vehicle designed to carry a launcher or payload rather than direct‑fire weapons"
-    sa_22_txt_2 = "An overhead image shows a large wheeled military vehicle with a long, rectangular truck‑like chassis and multiple axles. A box‑shaped rear superstructure occupies much of the vehicle length. The top profile is flat and angular, with no visible turret or gun barrel. The vehicle’s silhouette is elongated and modular, dominated by a rear-mounted payload rather than a compact fighting compartment."
-    sa_22_txt_3 = "An overhead image shows a wheeled military vehicle with an elongated rectangular chassis and multiple axles. The vehicle has a large, box‑shaped rear superstructure occupying much of the vehicle length. The top surface is flat and angular, with no visible turret, cannon, or forward‑pointing gun barrels. The overall silhouette is long and modular, dominated by a rear-mounted payload rather than a compact fighting compartment."
-
-    scud_txt_1 = "An aerial image depicts a multi‑axle wheeled vehicle with a cylindrical launcher tube mounted along the centerline of the chassis. The launcher is long, rounded, and raised above the vehicle body, extending nearly the full length of the platform. The vehicle has a distinct separation between the driving cab and the launcher system. No gun barrels or rotating turret are visible"
-    scud_txt_2 = "An aerial view depicts a multi‑axle wheeled vehicle carrying a single long cylindrical launcher tube mounted along the vehicle’s centerline. The tube is rounded, smooth, and elevated above the chassis, extending nearly the full length of the vehicle. The launcher is visually distinct from the cab area. No turret or direct‑fire gun barrels are visible"
-    scud_txt_3 = "An aerial view depicts a multi‑axle wheeled vehicle carrying a single long cylindrical launcher tube mounted along the vehicle’s centerline. The tube is rounded, uniform in diameter, and elevated above the chassis, extending nearly the full length of the vehicle. The launcher structure is visually distinct from the cab area. There are no rotating turrets or direct‑fire gun barrels visible."
-
-    t_90_txt_1 = "Top‑down aerial image of a tracked or heavy wheeled armored vehicle traveling on a paved road. The vehicle features a central rotating turret mounted on top of the hull. A long gun barrel extends forward from the turret, clearly visible and projecting beyond the front of the vehicle. The hull is compact and rectangular, significantly shorter than launcher trucks. The defining feature is the turret‑mounted cannon rather than a rear launcher system."
-    t_90_txt_2 = "Aerial image of an armored vehicle positioned near a shoreline. The vehicle has a solid armored hull and a turret mounted centrally on top. A gun barrel extends outward from the turret, forming a distinct protruding weapon. The vehicle is compact compared to long launcher trucks and lacks cylindrical missile tubes or large rear containers. The turret and barrel are the primary identifying elements."
-    t_90_txt_3 = "Top‑down aerial view of an armored combat vehicle on flat, open terrain. The vehicle has a low‑profile hull with a centrally mounted turret. One or more gun barrels are visible extending from the turret. The overall shape is compact and dense, with armor plates and no elongated launcher structures. The presence of a turret and direct‑fire gun differentiates this vehicle from launcher or missile carrier systems."
+    t_90_txt_1 = "The image features a modern main battle tank with a distinct low-profile, rounded (hemispherical) turret. Centered in the turret is a long smoothbore main gun, often featuring a thermal sleeve or fume extractor. The hull is elongated and sits low to the ground, protected by thick frontal glacis armor, with heavy side skirts covering the upper portion of the tracks."
+    #t_90_txt_2 = "A main battle tank featuring a large, boxy turret with sharp, angled surfaces designed for kinetic energy deflection. It is armed with a large-caliber smoothbore gun. The exterior is notable for modular or composite armor plates bolted onto the turret faces and hull, creating a multi-layered, geometric appearance compared to cast-steel designs."
+    t_90_txt_3 = "A high-angle view of a main battle tank characterized by its continuous caterpillar tracks and a heavy armored hull. The most prominent feature is the centrally mounted, 360-degree rotating turret which houses a long-barrelled primary cannon. The silhouette is defined by the mechanical complexity of the drive sprockets and the low-profile chassis."
 
 
     # VLLM:
@@ -85,12 +85,13 @@ def get_classification_prompt(target_img_path):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Classify the weapon system based only on the vehicle structure and mounted weapon system. Ignore background, terrain, and camera angle."},
+                {"type": "text", "text": "You receive an image from a simulation and you must classify the military vehicle in the image, based only on the vehicle structure and mounted weapon system. Ignore background, terrain, and camera angle."},
+                {"type": "text", "text": "Identify the object in the frame. If the object is small or distant, consider its overall shape, color patterns."},
                 {"type": "text", "text": "Examples:"},
 
                 # Shot 1
-                img_to_content(sa_22_path_1),
-                {"type": "text", "text": sa_22_txt_1+ "\nAnswer: class_1"},
+                #img_to_content(sa_22_path_1),
+                #{"type": "text", "text": sa_22_txt_1+ "\nAnswer: class_1"},
 
                 img_to_content(sa_22_path_2),
                 {"type": "text", "text": sa_22_txt_2 + "\nAnswer: class_1"},
@@ -112,8 +113,8 @@ def get_classification_prompt(target_img_path):
                 img_to_content(t_90_path_1),
                 {"type": "text", "text": t_90_txt_1+ "\nAnswer: class_3"},
 
-                img_to_content(t_90_path_2),
-                {"type": "text", "text": t_90_txt_2+ "\nAnswer: class_3"},
+                # img_to_content(t_90_path_2),
+                # {"type": "text", "text": t_90_txt_2+ "\nAnswer: class_3"},
 
                 img_to_content(t_90_path_3),
                 {"type": "text", "text": t_90_txt_3+ "\nAnswer: class_3"},
@@ -121,52 +122,16 @@ def get_classification_prompt(target_img_path):
 
                 # Query image
                 img_to_content(target_img_path),
+                # {"type": "text",
+                #  "text": "Analyze the provided image. First, describe the primary object's shape and visible features. Second, based on those features, classify the object into one of the following categories"},
                 {"type": "text",
-                 "text": "Based on the examples above, which class does this image belong to? Answer only: 'class_1', 'class_2', or 'class_3'."}
+                 "text": "Based on the examples above, which class does this image belong to? Answer only: 'class_1', 'class_2', 'class_3'."}
             ]
         }
     ]
 
     return messages
 
-
-def load_model(model_id):
-
-    processor = AutoProcessor.from_pretrained(
-        model_id,
-        trust_remote_code=True,
-        dtype=torch.bfloat16,
-        device_map="auto"
-    )
-
-    model = AutoModelForImageTextToText.from_pretrained(
-        model_id,
-        trust_remote_code=True,
-        dtype=torch.bfloat16,
-        device_map="auto"
-    )
-    return processor, model
-
-
-def run_model(processor, model, prompt_func, image_path):
-    messages = prompt_func(image_path)
-
-    inputs = processor.apply_chat_template(
-        messages,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_tensors="pt",
-        return_dict=True,
-    )
-
-    inputs = {k: v.to(model.device) for k, v in inputs.items()}
-
-    with torch.inference_mode():
-        generated_ids = model.generate(**inputs, max_new_tokens=2048)
-
-    generated_tokens = generated_ids[0, inputs['input_ids'].size(1):]
-    generated_text = processor.tokenizer.decode(generated_tokens, skip_special_tokens=True)
-    return generated_text
 
 
 
@@ -184,11 +149,11 @@ def plot_img_with_run_classification(image_path, classifcation):
     img.show()
 
 
-def send_to_vllm(client, prompt_func, image_path):
-    messages = prompt_func(image_path)
+def send_to_vllm(client, prompt_func, image_path, external_prompt=None):
+    messages = prompt_func(image_path, external_prompt)
     response = client.chat.completions.create(
         model="/model_path",
-        messages=messages
+        messages=messages,
     )
     res_text = response.choices[0].message.content
     return res_text
@@ -214,6 +179,7 @@ def run_train_classifcation(client):
         #full_scale_file_path = f"{TRAIN_FULL_MODE_FILES_PATH}{jpg_file}"
 
         classification = send_to_vllm(client, get_classification_prompt, full_crop_file_path)
+        classification = classification.strip()
         if classification not in d_convert.keys():
             print(f"{jpg_file} = {classification}")
         else:
@@ -245,7 +211,35 @@ def print_cm(df):
     print(cm_percent.round(2))
 
 
+def eda_few_shots(client):
+    import glob
+    l_sa_22 = glob.glob('/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/*.jpg')
+    l_scud = glob.glob('/home/amitli/repo/dor6_vision/Dataset/few_shots/SCUD/*.jpg')
+    l_t_90 = glob.glob('/home/amitli/repo/dor6_vision/Dataset/few_shots/T-90/*.jpg')
+
+    l_all = l_sa_22 + l_scud + l_t_90
+    l_gt  = ['SA-22'] * 3 + ['SCUD'] * 3 + ['T-90'] * 3
+
+    for i in range(len(l_all)):
+        print("\n----------------------------------------------------------------------\n")
+        file        = l_all[i]
+        gt          = l_gt[i]
+        desc_prompt = f"You are getting a picture from a simulation that contains a {gt} military vehicle. Describe ONLY the visual features of the military vehicle in the picture (Only the visual features you see in this image)."
+        description = send_to_vllm(client, get_image_description_prompt, file, desc_prompt)
+        print(f"[{gt}] {os.path.basename(file)} = {description}")
+
+
+
+
 if __name__ == "__main__":
+
+
+
+    # Confusion Matrix (Percentages):
+    #        SA-22   SCUD   T-90
+    # SA-22  64.19   4.46  31.35
+    # SCUD   37.01  55.39   7.60
+    # T-90    0.85   0.14  99.01
 
     # T90 as SCUD # '11-18-04_484400_892.jpg', '11-18-04_484400_727.jpg', '11-18-04_484400_435.jpg'
     # SCUD as T-90 # '11-21-10_1324400_1299.jpg', '11-21-10_1324400_1117.jpg', '11-21-10_1324400_1617.jpg'
@@ -269,31 +263,44 @@ if __name__ == "__main__":
     RUN_TRAIN = True
 
     client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
+    None
+
+    # eda_few_shots(client)
+    # exit(0)
+
+    # Confusion Matrix (Percentages):
+    #        SA-22   SCUD   T-90
+    # SA-22  34.02   9.31  56.66
+    # SCUD    1.51  63.43  35.06
+    # T-90    0.00   0.51  99.49
 
     if RUN_TRAIN:
         run_train_classifcation(client)
         exit(0)
 
-    df_test_crop  = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/test_set_point.csv')
 
-    #for i in [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]:
-    for i in [510, 530, 590, 620, 670, 705, 750]:
-        #i = 100
-        file = df_test_crop['jpg_file'].values[i]
-        full_crop_file = f"{TEST_CROP_FILES_PATH}{file}"
-        full_size_file = f"{TEST_FULL_MODE_FILES_PATH}{file}"
 
-        d_convert = {"Class_1": "SA-22",
-                     "Class_2": "SCUD",
-                     "Class_3": "T-90"}
 
-        # description = send_to_vllm(client, get_image_description_prompt, full_crop_file)
-        # print(description)
-        start_time = time.time()
-        classification = send_to_vllm(client, get_classification_prompt, full_crop_file)
-        end_time = time.time()
-        print(f"[{file}] time = {(end_time - start_time):.2f}s")
-        plot_img_with_run_classification(full_size_file, d_convert[classification])
-        #print(f"file = {file}")
+    RUN_ON_TEST_SET = False
+    if RUN_ON_TEST_SET:
+        df_test_crop  = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/test_set_point.csv')
+        for i in range(len(df_test_crop)):
+            #i = 100
+            file = df_test_crop['jpg_file'].values[i]
+            full_crop_file = f"{TEST_CROP_FILES_PATH}{file}"
+            full_size_file = f"{TEST_FULL_MODE_FILES_PATH}{file}"
+
+            d_convert = {"Class_1": "SA-22",
+                         "Class_2": "SCUD",
+                         "Class_3": "T-90"}
+
+            # description = send_to_vllm(client, get_image_description_prompt, full_crop_file)
+            # print(description)
+            start_time = time.time()
+            classification = send_to_vllm(client, get_classification_prompt, full_crop_file)
+            end_time = time.time()
+            print(f"[{file}] time = {(end_time - start_time):.2f}s")
+            plot_img_with_run_classification(full_size_file, d_convert[classification])
+            #print(f"file = {file}")
 
 

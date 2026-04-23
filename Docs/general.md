@@ -10,10 +10,17 @@
 | main_eval_eda.py                | Create embeddings & UMAP for test set, plot with train embeddings    |
 
 
+# File Size:
+| Type  | Size    |
+|-------|---------|
+| Full  | 960x540 |
+| Crop  | 200x200 |
 
 
-
-
-
+# MP4 (Train_A_Video.mp4):
+| Statisics               |                               |
+|-------------------------|-------------------------------|
+| Video Length)           | 597.93 seconds (9.97 minutes) |
+| Frames per Second (FPS) | 30.0                          |
 
 

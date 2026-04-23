@@ -7,6 +7,7 @@ import torch
 import plotly.express as px
 import matplotlib.pyplot as plt
 
+from app_config.settings import TRAIN_FULL_MODE_FILES_PATH, TRAIN_CROP_FILES
 from main_create_embeddings import create_embeddings, load_model, run_umap
 from pointing_agent.pointing_agent import PointingAgent
 from PIL import Image
@@ -112,7 +113,19 @@ def plot_umap_to_html(df_file_name, plot_file_name):
     fig.write_html(plot_file_name)
     fig.show()
 
+def print_statisics():
+
+    full_file = f"{TRAIN_FULL_MODE_FILES_PATH}/11-17-44_444400_23.jpg"
+    crop_file = f"{TRAIN_CROP_FILES}/11-17-44_444400_23.jpg"
+    full_image = Image.open(full_file).convert("RGB")
+    crop_image = Image.open(crop_file).convert("RGB")
+    print(f"Full file size:{full_image.size}")
+    print(f"Crop file size:{crop_image.size}")
+
 if __name__ == "__main__":
+
+    # print_statisics()
+    # exit(0)
 
     TRAIN_EMBEDDINGS_CROP_CSV = "/home/amitli/repo/dor6_vision/Dataset/embeddings_crop.csv"
     TEST_SET_PATH             = "/home/amitli/repo/dor6_vision/Dataset/test_set/"
@@ -121,8 +134,9 @@ if __name__ == "__main__":
 
     #get_testset_pointing(TEST_SET_PATH, TEST_SET_POINT_CSV)
     #crop_test_files(TEST_SET_POINT_CSV, TEST_SET_CROP_FOLDER)
+
     #test_set_crop_embeddings()
-    #run_umap_train_and_test_crop()
+    run_umap_train_and_test_crop()
 
     plot_umap_df("/home/amitli/repo/dor6_vision/Dataset/train_test_umap_crop.csv")
     plot_umap_to_html("/home/amitli/repo/dor6_vision/Dataset/train_test_umap_crop.csv",
