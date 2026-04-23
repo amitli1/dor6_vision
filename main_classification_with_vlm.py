@@ -151,13 +151,18 @@ def plot_img_with_run_classification(image_path, classifcation):
 
 
 def send_to_vllm(client, prompt_func, image_path, external_prompt=None):
-    messages = prompt_func(image_path, external_prompt)
-    response = client.chat.completions.create(
-        #model="/model_path",
-        model = "google/gemma-4-31B-it",
-        messages=messages,
-    )
-    res_text = response.choices[0].message.content
+
+    try:
+        messages = prompt_func(image_path, external_prompt)
+        response = client.chat.completions.create(
+            #model="/model_path",
+            model = "google/gemma-4-31B-it",
+            messages=messages,
+        )
+        res_text = response.choices[0].message.content
+    except Exception as e:
+        print(f"Got an error: {e} FILE: {image_path}")
+        res_text = "Error"
     return res_text
 
 
@@ -172,7 +177,7 @@ def run_train_classifcation(client):
     l_prediction = []
 
     df_train_crop = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv')
-    df_train_crop = df_train_crop.sample(frac=0.50)
+    #df_train_crop = df_train_crop.sample(frac=0.50)
     for i in tqdm(range(len(df_train_crop))):
         jpg_file = df_train_crop.jpg_file.values[i]
         gt       = df_train_crop['gt'].values[i]
@@ -318,3 +323,39 @@ if __name__ == "__main__":
     # SA-22  91.52   3.37   5.11
     # SCUD    5.97  92.04   1.99
     # T-90    2.92   0.00  97.08
+
+
+    # 50%
+    # /home/amitli/repo/dor6_vision/.venv/bin/python /home/amitli/repo/dor6_vision/main_classification_with_vlm.py
+#  10%|█         | 797/7880 [07:16<1:02:16,  1.90it/s]11-21-02_1244400_1173.jpg = none
+#  11%|█         | 850/7880 [07:45<58:50,  1.99it/s]  11-20-40_924400_895.jpg = none
+#  12%|█▏        | 926/7880 [08:24<57:59,  2.00it/s]  11-21-02_1244400_392.jpg = none
+#  17%|█▋        | 1319/7880 [11:54<53:22,  2.05it/s]11-21-02_1244400_1518.jpg = none
+#  25%|██▍       | 1943/7880 [17:33<45:31,  2.17it/s]11-21-02_1244400_967.jpg = none
+#  26%|██▌       | 2028/7880 [18:20<56:29,  1.73it/s]11-17-44_444400_1286.jpg = none
+#  27%|██▋       | 2122/7880 [19:15<48:11,  1.99it/s]11-21-10_1324400_27.jpg = none
+#  30%|███       | 2378/7880 [21:45<58:08,  1.58it/s]  11-21-02_1244400_1169.jpg = none
+#  32%|███▏      | 2511/7880 [23:08<45:26,  1.97it/s]11-21-17_1284400_22.jpg = none
+#  40%|███▉      | 3145/7880 [28:30<35:27,  2.23it/s]11-21-02_1244400_165.jpg = none
+#  43%|████▎     | 3363/7880 [30:19<38:38,  1.95it/s]11-21-02_1244400_18.jpg = none
+#  44%|████▍     | 3473/7880 [31:21<37:34,  1.95it/s]11-17-44_444400_1338.jpg = none
+#  48%|████▊     | 3814/7880 [35:53<49:54,  1.36it/s]11-20-40_924400_1207.jpg = none
+#  52%|█████▏    | 4063/7880 [38:59<36:43,  1.73it/s]11-21-17_1284400_32.jpg = none
+#  57%|█████▋    | 4520/7880 [44:59<41:54,  1.34it/s]11-20-27_844400_689.jpg = none
+#  66%|██████▌   | 5180/7880 [52:08<24:07,  1.87it/s]11-21-02_1244400_1331.jpg = none
+#  73%|███████▎  | 5782/7880 [57:25<19:59,  1.75it/s]11-21-17_1284400_111.jpg = Please provide the image you would like me to classify.
+#  74%|███████▍  | 5812/7880 [57:40<16:24,  2.10it/s]11-21-02_1244400_1156.jpg = none
+#  78%|███████▊  | 6136/7880 [1:00:19<13:08,  2.21it/s]11-21-02_1244400_1327.jpg = none
+#  83%|████████▎ | 6536/7880 [1:05:08<18:47,  1.19it/s]11-17-44_444400_421.jpg = none
+#  85%|████████▌ | 6716/7880 [1:07:26<12:40,  1.53it/s]11-21-17_1284400_31.jpg = none
+#  88%|████████▊ | 6920/7880 [1:10:02<09:40,  1.65it/s]11-21-02_1244400_1338.jpg = none
+#  91%|█████████ | 7144/7880 [1:13:02<09:08,  1.34it/s]11-17-44_444400_302.jpg = none
+#  94%|█████████▍| 7402/7880 [1:16:27<05:29,  1.45it/s]11-21-02_1244400_1332.jpg = none
+#  96%|█████████▌| 7570/7880 [1:18:31<03:00,  1.71it/s]11-21-17_1284400_33.jpg = none
+# 100%|██████████| 7880/7880 [1:21:33<00:00,  1.61it/s]
+#
+# Confusion Matrix (Percentages):
+#        SA-22   SCUD   T-90
+# SA-22  90.65   3.94   5.42
+# SCUD    6.59  91.48   1.93
+# T-90    4.38   0.23  95.39
