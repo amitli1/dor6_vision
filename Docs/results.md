@@ -18,3 +18,15 @@ T-90    7.71   0.63  91.66
  T-90    4.38   0.23  95.39
 ```
 
+### google/gemma-4-31B-it (25% samples):
+1. num_of_none = 3661
+2. prompt with no BB
+3. prompt contain few shots segment
+```
+Confusion Matrix (Percentages):
+        SA-22  SCUD   T-90
+SA-22  100.00   0.0   0.00
+SCUD    91.40   8.6   0.00
+T-90  
+70.97   0.0  29.03
+```
