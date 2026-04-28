@@ -1,5 +1,4 @@
 from PIL import Image, ImageDraw, ImageFont
-from transformers import AutoProcessor, AutoModelForImageTextToText
 import torch
 import base64
 from openai import OpenAI
@@ -158,6 +157,11 @@ def send_to_vllm(client, prompt_func, image_path, external_prompt=None):
             #model="/model_path",
             model = "google/gemma-4-31B-it",
             messages=messages,
+            extra_body={
+                "mm_processor_kwargs": {
+                    "max_soft_tokens": 1120
+                }
+            }
         )
         res_text = response.choices[0].message.content
     except Exception as e:
@@ -166,7 +170,7 @@ def send_to_vllm(client, prompt_func, image_path, external_prompt=None):
     return res_text
 
 
-def run_train_classifcation(client):
+def run_train_classifcation(client, files_path, df):
 
     d_convert = {"class_1": "SA-22",
                  "class_2": "SCUD",
@@ -176,16 +180,12 @@ def run_train_classifcation(client):
     l_gt         = []
     l_prediction = []
 
-    df_train_crop = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv')
-    #df_train_crop = df_train_crop.sample(frac=0.50)
-    for i in tqdm(range(len(df_train_crop))):
-        jpg_file = df_train_crop.jpg_file.values[i]
-        gt       = df_train_crop['gt'].values[i]
+    for i in tqdm(range(len(df))):
+        jpg_file = df.jpg_file.values[i]
+        gt       = df['gt'].values[i]
 
-        full_crop_file_path = f"{TRAIN_CROP_FILES}{jpg_file}"
-        #full_scale_file_path = f"{TRAIN_FULL_MODE_FILES_PATH}{jpg_file}"
-
-        classification = send_to_vllm(client, get_classification_prompt, full_crop_file_path)
+        full_file_path = f"{files_path}{jpg_file}"
+        classification = send_to_vllm(client, get_classification_prompt, full_file_path)
         classification = classification.strip()
         if classification.find('Answer:') != -1:
             classification = classification[7:].strip()
@@ -238,24 +238,31 @@ def eda_few_shots(client):
         print(f"[{gt}] {os.path.basename(file)} = {description}")
 
 
+def load_shiry_df():
 
+    df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
+    df = df.rename(columns={'filename': 'jpg_file', 'label_name': 'gt'})
+    return df
 
 if __name__ == "__main__":
 
-    RUN_TRAIN = True
+    RUN_TRAIN       = True
+    RUN_ON_TEST_SET = False
 
     client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
 
     # eda_few_shots(client)
     # exit(0)
 
-
     if RUN_TRAIN:
-        run_train_classifcation(client)
+        FOLDER_PATH = TRAIN_CROP_FILES
+        #FOLDER_PATH = TRAIN_FULL_MODE_FILES_PATH
+        df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv')
+        df = df.sample(frac=0.10)
+        #df = load_shiry_df()
+        run_train_classifcation(client, FOLDER_PATH, df)
         exit(0)
 
-
-    RUN_ON_TEST_SET = False
     if RUN_ON_TEST_SET:
         df_test_crop  = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/test_set_point.csv')
         for i in range(len(df_test_crop)):
@@ -277,85 +284,3 @@ if __name__ == "__main__":
             plot_img_with_run_classification(full_size_file, d_convert[classification])
             #print(f"file = {file}")
 
-
- # Confusion Matrix (Percentages):
-    #        SA-22   SCUD   T-90
-    # SA-22  34.02   9.31  56.66
-    # SCUD    1.51  63.43  35.06
-    # T-90    0.00   0.51  99.49
-
-    #  gemma 4 - no nOne ((15%))
-    # Confusion Matrix (Percentages):
-    #        SA-22   SCUD   T-90
-    # SA-22  93.35   3.58   3.07
-    # SCUD    9.75  88.00   2.25
-    # T-90    4.99   0.00  95.01
-
-    #  gemma 4 - with nOne (15%)
-    # /home/amitli/repo/dor6_vision/.venv/bin/python /home/amitli/repo/dor6_vision/main_classification_with_vlm.py
-    #   8%|▊         | 198/2364 [02:09<20:40,  1.75it/s]11-17-44_444400_696.jpg = none
-    #  24%|██▎       | 561/2364 [06:07<18:10,  1.65it/s]11-21-02_1244400_967.jpg = none
-    #  29%|██▉       | 693/2364 [07:36<22:58,  1.21it/s]11-18-04_484400_193.jpg = Please provide the image you would like me to classify.
-    #  41%|████      | 959/2364 [10:35<14:56,  1.57it/s]11-20-27_844400_323.jpg = none
-    #  48%|████▊     | 1126/2364 [12:30<13:50,  1.49it/s]11-21-02_1244400_1327.jpg = none
-    #  49%|████▊     | 1150/2364 [12:46<13:24,  1.51it/s]11-21-02_1244400_1341.jpg = none
-    #  59%|█████▉    | 1394/2364 [15:02<10:38,  1.52it/s]11-21-17_1284400_92.jpg = Please provide the image you would like me to classify.
-    #  88%|████████▊ | 2073/2364 [21:02<02:09,  2.24it/s]11-21-02_1244400_1527.jpg = none
-    # 100%|██████████| 2364/2364 [23:23<00:00,  1.68it/s]
-    #
-    # Confusion Matrix (Percentages):
-    #        SA-22   SCUD   T-90
-    # SA-22  90.86   4.82   4.31
-    # SCUD    6.35  92.45   1.20
-    # T-90    3.27   0.14  96.59
-
-    #gemma 4 - with nOne (15%)
-    # /home/amitli/repo/dor6_vision/.venv/bin/python /home/amitli/repo/dor6_vision/main_classification_with_vlm.py
-    #  10%|▉         | 229/2364 [02:01<19:36,  1.81it/s]11-17-44_444400_291.jpg = none
-    #  31%|███       | 733/2364 [06:37<16:23,  1.66it/s]11-21-02_1244400_1156.jpg = none
-    #  35%|███▍      | 821/2364 [07:25<13:42,  1.88it/s]11-20-40_924400_960.jpg = none
-    #  57%|█████▋    | 1359/2364 [12:13<08:29,  1.97it/s]11-21-02_1244400_18.jpg = none
-    #  83%|████████▎ | 1955/2364 [17:29<03:19,  2.05it/s]11-21-02_1244400_967.jpg = none
-    # 100%|██████████| 2364/2364 [21:04<00:00,  1.87it/s]
-    #
-    # Confusion Matrix (Percentages):
-    #        SA-22   SCUD   T-90
-    # SA-22  91.52   3.37   5.11
-    # SCUD    5.97  92.04   1.99
-    # T-90    2.92   0.00  97.08
-
-
-    # 50%
-    # /home/amitli/repo/dor6_vision/.venv/bin/python /home/amitli/repo/dor6_vision/main_classification_with_vlm.py
-#  10%|█         | 797/7880 [07:16<1:02:16,  1.90it/s]11-21-02_1244400_1173.jpg = none
-#  11%|█         | 850/7880 [07:45<58:50,  1.99it/s]  11-20-40_924400_895.jpg = none
-#  12%|█▏        | 926/7880 [08:24<57:59,  2.00it/s]  11-21-02_1244400_392.jpg = none
-#  17%|█▋        | 1319/7880 [11:54<53:22,  2.05it/s]11-21-02_1244400_1518.jpg = none
-#  25%|██▍       | 1943/7880 [17:33<45:31,  2.17it/s]11-21-02_1244400_967.jpg = none
-#  26%|██▌       | 2028/7880 [18:20<56:29,  1.73it/s]11-17-44_444400_1286.jpg = none
-#  27%|██▋       | 2122/7880 [19:15<48:11,  1.99it/s]11-21-10_1324400_27.jpg = none
-#  30%|███       | 2378/7880 [21:45<58:08,  1.58it/s]  11-21-02_1244400_1169.jpg = none
-#  32%|███▏      | 2511/7880 [23:08<45:26,  1.97it/s]11-21-17_1284400_22.jpg = none
-#  40%|███▉      | 3145/7880 [28:30<35:27,  2.23it/s]11-21-02_1244400_165.jpg = none
-#  43%|████▎     | 3363/7880 [30:19<38:38,  1.95it/s]11-21-02_1244400_18.jpg = none
-#  44%|████▍     | 3473/7880 [31:21<37:34,  1.95it/s]11-17-44_444400_1338.jpg = none
-#  48%|████▊     | 3814/7880 [35:53<49:54,  1.36it/s]11-20-40_924400_1207.jpg = none
-#  52%|█████▏    | 4063/7880 [38:59<36:43,  1.73it/s]11-21-17_1284400_32.jpg = none
-#  57%|█████▋    | 4520/7880 [44:59<41:54,  1.34it/s]11-20-27_844400_689.jpg = none
-#  66%|██████▌   | 5180/7880 [52:08<24:07,  1.87it/s]11-21-02_1244400_1331.jpg = none
-#  73%|███████▎  | 5782/7880 [57:25<19:59,  1.75it/s]11-21-17_1284400_111.jpg = Please provide the image you would like me to classify.
-#  74%|███████▍  | 5812/7880 [57:40<16:24,  2.10it/s]11-21-02_1244400_1156.jpg = none
-#  78%|███████▊  | 6136/7880 [1:00:19<13:08,  2.21it/s]11-21-02_1244400_1327.jpg = none
-#  83%|████████▎ | 6536/7880 [1:05:08<18:47,  1.19it/s]11-17-44_444400_421.jpg = none
-#  85%|████████▌ | 6716/7880 [1:07:26<12:40,  1.53it/s]11-21-17_1284400_31.jpg = none
-#  88%|████████▊ | 6920/7880 [1:10:02<09:40,  1.65it/s]11-21-02_1244400_1338.jpg = none
-#  91%|█████████ | 7144/7880 [1:13:02<09:08,  1.34it/s]11-17-44_444400_302.jpg = none
-#  94%|█████████▍| 7402/7880 [1:16:27<05:29,  1.45it/s]11-21-02_1244400_1332.jpg = none
-#  96%|█████████▌| 7570/7880 [1:18:31<03:00,  1.71it/s]11-21-17_1284400_33.jpg = none
-# 100%|██████████| 7880/7880 [1:21:33<00:00,  1.61it/s]
-#
-# Confusion Matrix (Percentages):
-#        SA-22   SCUD   T-90
-# SA-22  90.65   3.94   5.42
-# SCUD    6.59  91.48   1.93
-# T-90    4.38   0.23  95.39
