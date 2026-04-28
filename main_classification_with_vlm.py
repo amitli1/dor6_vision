@@ -47,12 +47,7 @@ def img_to_content(path):
         },
     }
 
-def get_classification_prompt(target_img_path, extrernal_prompt=None):
-
-    # I want to use gemma3-4B for classifcation between objects (weapon systems) in the image .
-    # (The background may change, the weapon system in the image is matter)
-    # I want to add few shots example (with those 3 images) (each image contains one weapon systems)
-    # please write me description for each image, that I will copy it to the prompt of few shots examples, so the VLM will understand how to classify
+def get_classification_prompt(target_img_path, extract_descrtion):
 
     #sa_22_path_1 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-21-02_1244400_1020.jpg"
     sa_22_path_2 = "/home/amitli/repo/dor6_vision/Dataset/few_shots/SA-22/11-20-27_844400_795.jpg"
@@ -190,7 +185,8 @@ def run_train_classifcation(client, files_path, df):
         if classification.find('Answer:') != -1:
             classification = classification[7:].strip()
         if classification not in d_convert.keys():
-            print(f"{jpg_file} = {classification}")
+            #print(f"{jpg_file} = {classification}")
+            None
         else:
             classification = d_convert[classification]
 
@@ -255,11 +251,11 @@ if __name__ == "__main__":
     # exit(0)
 
     if RUN_TRAIN:
-        FOLDER_PATH = TRAIN_CROP_FILES
-        #FOLDER_PATH = TRAIN_FULL_MODE_FILES_PATH
-        df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv')
-        df = df.sample(frac=0.10)
-        #df = load_shiry_df()
+        #FOLDER_PATH = TRAIN_CROP_FILES
+        FOLDER_PATH = TRAIN_FULL_MODE_FILES_PATH
+        #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv')
+        #df = df.sample(frac=0.10)
+        df = load_shiry_df()
         run_train_classifcation(client, FOLDER_PATH, df)
         exit(0)
 
