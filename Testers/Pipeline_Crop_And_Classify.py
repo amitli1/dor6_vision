@@ -22,6 +22,12 @@ def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_
     width, height = img.size
     font          = ImageFont.truetype(FONT_FILE, size=32)
 
+    pred_str = ""
+    for i in range(len(l_prediction)):
+        pred_str += l_prediction[i] + "\n"
+    draw.text((1, 1), pred_str, fill="red", font=font)
+
+
     if type(l_cords) == str:
         l_cords = ast.literal_eval(l_cords)
 
@@ -36,9 +42,10 @@ def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_
 
         # 3. Draw the rectangle
         # PIL expects [xmin, ymin, xmax, ymax]
-        draw.rectangle([left, top, right, bottom], outline="red", width=3)
-        if l_prediction is not None:
-            draw.text((left+50, top), l_prediction[i], fill="red", font=font)
+        #draw.rectangle([left, top, right, bottom], outline="red", width=3)
+        # if l_prediction is not None:
+        #     draw.text((left+50, top), l_prediction[i], fill="red", font=font)
+        draw.text((left+50, top), f"{i+1}", fill="red", font=font)
 
     if output_jpg_file:
         img.save(output_jpg_file)
@@ -82,7 +89,6 @@ def create_crop_files(image_path, model_bb_json_res):
 
 def classify_objects(client, objects_path, num_of_objects):
 
-    print(f"\tStart classifying:")
     #messages = create_prompt_classification_for_crops(objects_path, num_of_objects)
     messages = get_classification_prompt(objects_path, num_of_objects)
 
@@ -155,10 +161,12 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_text_line(content, f"You receive {num_of_objects} patches of images from a military simulation and you must classify the military vehicle in the image, based only on the vehicle structure and mounted weapon system. Ignore background, terrain, and camera angle.")
     add_text_line(content,"Classify the military vehicle in each image. If the military vehicle is small or distant, consider its overall shape, color patterns.")
 
+    add_text_line(content, "VISUAL DIFFERENTIATORS")
     add_text_line(content, "SA-22")
     add_text_line(content,"1. A truck‑mounted system")
     add_text_line(content,"2. Has a visible dual autocannons")
-    add_text_line(content,"3. Has a adar module")
+    add_text_line(content,"3. Has a radar module")
+    add_text_line(content,"4. The missiles are mounted on the sides of the turret, not in the center.")
 
     add_text_line(content, "SCUD")
     add_text_line(content, "1. carry one large ballistic missile")
@@ -166,9 +174,15 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_text_line(content, "3. No radar antennas")
 
     add_text_line(content, "T-90")
-    add_text_line(content,"")
-    add_text_line(content, "")
-    add_text_line(content, "")
+    add_text_line(content, "1. TANK")
+    add_text_line(content, "2. Large gun turret with a single main cannon")
+    add_text_line(content, "3. Prominent rotating turret")
+    #add_text_line(content, "4. Tracks instead of wheels")
+
+    add_text_line(content, "Reject SA-22 if:")
+    add_text_line(content, "1. The missiles are NOT mounted on the sides of the turret")
+    add_text_line(content, "2. Contains one missile")
+
 
 
     add_text_line(content,"Examples:")
@@ -284,18 +298,18 @@ if __name__ == "__main__":
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_344_00_07_999.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_473_00_10_999.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_1/frame_247_00_06_363.jpg'
-    #x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_287_00_06_944.jpg'
+    full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_287_00_06_944.jpg'
     # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_328_00_07_936.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_481_00_12_790.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_629_00_16_725.jpg'
-    full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_259_00_06_887.jpg'
+    # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_259_00_06_887.jpg'
 
 
     #draw_box(full_image_path, l_cords=[], output_jpg_file=None, show_img=True)
 
     DRAW_UPSAMPLE     = False
-    GET_LIST_OF_BB    = True
-    CREATE_CROP_FILES = True
+    GET_LIST_OF_BB    = False
+    CREATE_CROP_FILES = False
     CLASSIFY          = True
 
     if DRAW_UPSAMPLE:
@@ -323,9 +337,13 @@ if __name__ == "__main__":
         print(classifcation_result)
         end_time = time.time()
 
-        if classifcation_result.find('\n\n') != -1:
-            classifcation_result = classifcation_result.replace('\n\n', '\n')
-        classifcation_result = classifcation_result.split('\n')
+        if len(model_json_res) == 1:
+            classifcation_result = classifcation_result.replace('\n', ' ')
+            classifcation_result = f"[1] {classifcation_result}"
+        else:
+            if classifcation_result.find('\n\n') != -1:
+                classifcation_result = classifcation_result.replace('\n\n', '\n')
+            classifcation_result = classifcation_result.split('\n')
         l_prediction         = []
         l_bb                 = []
         for i in range(len(model_json_res)):
