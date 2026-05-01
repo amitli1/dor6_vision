@@ -341,7 +341,7 @@ def test_on_train():
 
 if __name__ == "__main__":
 
-    RUN_TRAIN_PIPELINE = True
+    RUN_TRAIN_PIPELINE = False
 
     if RUN_TRAIN_PIPELINE:
         test_on_train()
