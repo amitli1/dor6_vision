@@ -1,8 +1,11 @@
 from openai                          import OpenAI
 from PIL                             import Image, ImageDraw, ImageFont
 from Prompt.create_classifier_prompt import get_all_bb
-from app_config.settings             import FONT_FILE
+from app_config.settings             import FONT_FILE, TRAIN_FULL_MODE_FILES_PATH
+from main_classification_with_vlm    import print_cm
+from tqdm                            import tqdm
 
+import pandas                        as pd
 import numpy                         as np
 
 import ast
@@ -92,36 +95,32 @@ def classify_objects(client, objects_path, num_of_objects):
     #messages = create_prompt_classification_for_crops(objects_path, num_of_objects)
     messages = get_classification_prompt(objects_path, num_of_objects)
 
-    # json_schema = {
-    #     "type": "object",
-    #     "properties": {
-    #         "classifications": {
-    #             "type": "array",
-    #             "items": {
-    #                 "type": "object",
-    #                 "properties": {
-    #                     "class_type": {
-    #                         "type": "string",
-    #                         "enum": ['SA-22', 'SCUD', 'T-90', 'military_vehicle']
-    #                     },
-    #                 },
-    #                 "required": ["bounding_box", "class_type"],
-    #                 "additionalProperties": False
-    #             }
-    #         }
-    #     },
-    #     "required": ["classifications"],
-    #     "additionalProperties": False
-    # }
+    schema = {
+        "type": "object",
+        "properties": {
+            "images": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "description": {"type": "string"},
+                        "classification": {"type": "string"}
+                    },
+                    "required": ["description", "classification"]
+                }
+            }
+        },
+        "required": ["images"]
+    }
 
 
     response = client.chat.completions.create(
         model="google/gemma-4-31B-it",
         messages=messages,
         extra_body={
-            #"guided_json": json_schema,
+            "guided_json": schema,
             "mm_processor_kwargs": {
-                "max_soft_tokens": 140 #140
+                "max_soft_tokens": 280 #140
             }
         }
     )
@@ -210,7 +209,8 @@ def get_classification_prompt(objects_path, num_of_objects):
 
     add_text_line(content, 'If an image is too blurry to identify, label it as "Uncertain"')
     add_text_line(content, "Based on the examples above, which class does the following images belong to? If the image does not fit any of the three, answer 'none'. Answer only: 'SA-22', 'SCUD', 'T-90', or 'none' or 'Uncertain'.")
-    add_text_line(content,"for each image, describe the shape and color, then provide the classification")
+    #add_text_line(content,"for each image, describe the shape and color, then provide the classification")
+    add_text_line(content, "for each image, return a JSON object with fields: description, classification")
     for i in range(num_of_objects):
         add_text_line(content, f"Image: {i+1}")
         crop_file_path = f"{objects_path}/crop_{i + 1}.jpg"
@@ -290,26 +290,85 @@ def simulate_vlm_view(image_path, target_res=(224, 224), patch_size=16):
 
     return Image.fromarray(arr)
 
+def test_on_train():
+
+    client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
+
+    #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_500.csv')
+    df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
+    df = df.rename(columns={'filename': 'jpg_file', 'label_name': 'gt'})
+    df = df[df['gt'] != 'Other']
+
+    l_jpg_file    = []
+    l_gt          = []
+    l_prediction  = []
+    l_description = []
+    l_time        = []
+
+    for i in tqdm(range(len(df))):
+        jpg_file        = df['jpg_file'].values[i]
+        gt              = df['gt'].values[i]
+
+        try:
+            full_image_path = f"{TRAIN_FULL_MODE_FILES_PATH}{jpg_file}"
+            start_time      = time.time()
+            model_json_res = get_list_of_bounding_boxes(client, full_image_path)
+            with open(BB_TMP_FILE, "w") as f:
+                json.dump(model_json_res, f, indent=4)
+            create_crop_files(full_image_path, model_json_res)
+            classifcation_result = classify_objects(client, TMP_FILES_FOLDER, len(model_json_res))
+            classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
+            classifcation_result = json.loads(classifcation_result)
+            if type(classifcation_result) == list:
+                classifcation_result = classifcation_result[0]
+            prediction           = classifcation_result["classification"]
+            description          = classifcation_result["description"]
+        except Exception as e:
+            print(f"Error in {jpg_file}")
+            prediction  = "Error"
+            description = "Error"
+
+        end_time = time.time()
+        l_jpg_file    .append(jpg_file)
+        l_gt          .append(gt)
+        l_prediction  .append(prediction)
+        l_description .append(description)
+        l_time        .append(end_time-start_time)
+
+    df_tmp = pd.DataFrame({"jpg_file": l_jpg_file, 'gt': l_gt, 'prediction': l_prediction, 'description': l_description, "diff_time": l_time})
+    df_tmp.to_csv('tmp.csv', index=False)
+    print_cm(df_tmp)
+
 if __name__ == "__main__":
+
+    RUN_TRAIN_PIPELINE = True
+
+    if RUN_TRAIN_PIPELINE:
+        test_on_train()
+        # df_tmp = pd.read_csv('tmp.csv')
+        # print_cm(df_tmp)
+        exit(0)
 
     client          = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
 
     #x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_3/frame_273_00_06_418.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_344_00_07_999.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_473_00_10_999.jpg'
-    #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_1/frame_247_00_06_363.jpg'
-    full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_287_00_06_944.jpg'
+    full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_1/frame_247_00_06_363.jpg'
+    # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_287_00_06_944.jpg'
     # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_328_00_07_936.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_481_00_12_790.jpg'
     #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_629_00_16_725.jpg'
     # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_259_00_06_887.jpg'
 
 
+
+
     #draw_box(full_image_path, l_cords=[], output_jpg_file=None, show_img=True)
 
     DRAW_UPSAMPLE     = False
-    GET_LIST_OF_BB    = False
-    CREATE_CROP_FILES = False
+    GET_LIST_OF_BB    = True
+    CREATE_CROP_FILES = True
     CLASSIFY          = True
 
     if DRAW_UPSAMPLE:
@@ -334,25 +393,20 @@ if __name__ == "__main__":
             model_json_res = json.load(f)
         start_time = time.time()
         classifcation_result = classify_objects(client, TMP_FILES_FOLDER, len(model_json_res))
-        print(classifcation_result)
+        classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
+        classifcation_result = json.loads(classifcation_result)
         end_time = time.time()
 
-        if len(model_json_res) == 1:
-            classifcation_result = classifcation_result.replace('\n', ' ')
-            classifcation_result = f"[1] {classifcation_result}"
-        else:
-            if classifcation_result.find('\n\n') != -1:
-                classifcation_result = classifcation_result.replace('\n\n', '\n')
-            classifcation_result = classifcation_result.split('\n')
         l_prediction         = []
         l_bb                 = []
         for i in range(len(model_json_res)):
-            pred = classifcation_result[i]
-            pred = pred[pred.find(f'{i+1}.') + 2:].strip() # verify it is this image number
-            pred = pred[pred.find('Answer')+6:].strip()
+            pred           = classifcation_result[i]
+            classification = pred["classification"]
+            description    = pred["description"]
 
-            l_prediction.append(f"[{i+1}] {pred}")
+            l_prediction.append(f"[{i+1}] {classification}")
             l_bb        .append(model_json_res[i]['box_2d'])
+            print(f'\t[{i+1}] [{classification}] {description}')
 
         print(f"[{(end_time - start_time):.2f} sec] Object classification")
         draw_box(full_image_path, l_bb, output_jpg_file=None, l_prediction=l_prediction, show_img=True)
