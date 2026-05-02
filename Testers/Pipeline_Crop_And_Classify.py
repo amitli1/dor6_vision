@@ -355,7 +355,7 @@ def test_on_train():
         l_crop_ratio  .append(crop_ratio)
 
 
-    df_tmp = pd.DataFrame({"jpg_file": l_jpg_file, 'gt': l_gt, 'prediction': l_prediction, 'description': l_description, "diff_time": l_time})
+    df_tmp = pd.DataFrame({"jpg_file": l_jpg_file, 'gt': l_gt, 'prediction': l_prediction, 'description': l_description, "diff_time": l_time, 'crop_ratio': l_crop_ratio})
     df_tmp.to_csv('tmp2.csv', index=False)
     print_cm(df_tmp)
 
@@ -365,7 +365,13 @@ if __name__ == "__main__":
 
     if RUN_TRAIN_PIPELINE:
         test_on_train()
-        #df_tmp          = pd.read_csv('tmp2.csv')
+        df_tmp          = pd.read_csv('tmp2.csv')
+        df_tmp = df_tmp[df_tmp['gt'] != 'prediction']
+        print(df_tmp.crop_ratio.values)
+
+        df_tmp = pd.read_csv('tmp2.csv')
+        df_tmp = df_tmp[df_tmp['gt'] == 'prediction']
+        print(df_tmp.crop_ratio.values)
         # df_tmp = pd.read_csv('tmp.csv')
         # df_sa22         = df_tmp[df_tmp['gt'] == 'SA-22']
         # df_sa22_as_scud = df_sa22[df_sa22['prediction'] == 'SCUD']
