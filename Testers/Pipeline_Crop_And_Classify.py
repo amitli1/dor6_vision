@@ -68,7 +68,11 @@ def get_list_of_bounding_boxes(client, full_image_path):
     )
     res_text = response.choices[0].message.content
     res_text = res_text.replace("```json", "").replace("```", "").strip()
-    res_json = json.loads(res_text)
+    try:
+        res_json = json.loads(res_text)
+    except Exception as e:
+        res_json = {}
+        print(f"Cant get bounding boxes, File: {os.path.basename(full_image_path)}, Got: {res_text}")
     return res_json
 
 def create_crop_files(image_path, model_bb_json_res):
@@ -76,6 +80,7 @@ def create_crop_files(image_path, model_bb_json_res):
     image         = Image.open(image_path).convert("RGB")
     width, height = image.size
     #draw          = ImageDraw.Draw(image)
+    l_crop_ratio  = []
 
     for i, bb in enumerate(model_bb_json_res):
         ymin, xmin, ymax, xmax = bb['box_2d']
@@ -86,9 +91,15 @@ def create_crop_files(image_path, model_bb_json_res):
         #draw.rectangle([left, top, right, bottom], outline="red", width=3)
         crop_image = image.crop((left, top, right, bottom))
         #crop_image.show()
+        crop_width  = int(right-left)
+        crop_height = int(bottom-top)
+        crop_size   = (crop_width * crop_height)/(width * height)
+        l_crop_ratio.append(crop_size)
+        #print(f"[{os.path.basename(image_path)}] Image size: {image.size}, Crop #{i+1} size = ({crop_width},{crop_height}) [{crop_size:.3f}%]")
         crop_image.save(f"{TMP_FILES_FOLDER}/crop_{i+1}.jpg", "JPEG")
 
     #image.show()
+    return l_crop_ratio
 
 def classify_objects(client, objects_path, num_of_objects):
 
@@ -207,7 +218,12 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_3.JPG')
     add_text_line(content, f"{t90_txt_3} Answer: T-90")
 
-    add_text_line(content, 'If an image is too blurry to identify, label it as "Uncertain"')
+    # --- no guess
+    #add_text_line(content, 'If an image is too blurry to identify, label it as "Uncertain"')
+    add_text_line(content, "If a clear object from the known classes is visible → output the class")
+    add_text_line(content, 'If multiple classes are plausible or visibility is poor → output "Uncertain"')
+    add_text_line(content, "Do not guess.")
+
     add_text_line(content, "Based on the examples above, which class does the following images belong to? If the image does not fit any of the three, answer 'none'. Answer only: 'SA-22', 'SCUD', 'T-90', or 'none' or 'Uncertain'.")
     #add_text_line(content,"for each image, describe the shape and color, then provide the classification")
     add_text_line(content, "for each image, return a JSON object with fields: description, classification")
@@ -304,18 +320,19 @@ def test_on_train():
     l_prediction  = []
     l_description = []
     l_time        = []
+    l_crop_ratio  = []
 
     for i in tqdm(range(len(df))):
         jpg_file        = df['jpg_file'].values[i]
         gt              = df['gt'].values[i]
+        start_time      = time.time()
 
         try:
             full_image_path = f"{TRAIN_FULL_MODE_FILES_PATH}{jpg_file}"
-            start_time      = time.time()
             model_json_res = get_list_of_bounding_boxes(client, full_image_path)
             with open(BB_TMP_FILE, "w") as f:
                 json.dump(model_json_res, f, indent=4)
-            create_crop_files(full_image_path, model_json_res)
+            crop_ratio           = create_crop_files(full_image_path, model_json_res)
             classifcation_result = classify_objects(client, TMP_FILES_FOLDER, len(model_json_res))
             classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
             classifcation_result = json.loads(classifcation_result)
@@ -327,6 +344,7 @@ def test_on_train():
             print(f"Error in {jpg_file}")
             prediction  = "Error"
             description = "Error"
+            crop_ratio  = "Error"
 
         end_time = time.time()
         l_jpg_file    .append(jpg_file)
@@ -334,19 +352,37 @@ def test_on_train():
         l_prediction  .append(prediction)
         l_description .append(description)
         l_time        .append(end_time-start_time)
+        l_crop_ratio  .append(crop_ratio)
+
 
     df_tmp = pd.DataFrame({"jpg_file": l_jpg_file, 'gt': l_gt, 'prediction': l_prediction, 'description': l_description, "diff_time": l_time})
-    df_tmp.to_csv('tmp.csv', index=False)
+    df_tmp.to_csv('tmp2.csv', index=False)
     print_cm(df_tmp)
 
 if __name__ == "__main__":
 
-    RUN_TRAIN_PIPELINE = False
+    RUN_TRAIN_PIPELINE = True
 
     if RUN_TRAIN_PIPELINE:
         test_on_train()
+        #df_tmp          = pd.read_csv('tmp2.csv')
         # df_tmp = pd.read_csv('tmp.csv')
-        # print_cm(df_tmp)
+        # df_sa22         = df_tmp[df_tmp['gt'] == 'SA-22']
+        # df_sa22_as_scud = df_sa22[df_sa22['prediction'] == 'SCUD']
+        # #print(df_sa22_as_scud[['jpg_file', 'description']].head())
+        # for i in range(15):
+        #     print(f'{df_sa22_as_scud.jpg_file.values[i]} {df_sa22_as_scud.description.values[i]}')
+        #print_cm(df_tmp)
+        #       SA-22    SCUD   T-90
+        # SA-22  62.79   34.88   2.33
+        # SCUD    0.00  100.00   0.00
+        # T-90   11.11    4.44  84.44
+
+        # Confusion Matrix (Percentages):
+        #        SA-22    SCUD   T-90
+        # SA-22  62.22   35.56   2.22
+        # SCUD    0.00  100.00   0.00
+        # T-90   12.50    8.33  79.17
         exit(0)
 
     client          = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
