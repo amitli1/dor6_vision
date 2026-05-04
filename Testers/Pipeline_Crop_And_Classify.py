@@ -1,6 +1,5 @@
 from openai                          import OpenAI
 from PIL                             import Image, ImageDraw, ImageFont
-from Prompt.create_classifier_prompt import get_all_bb
 from app_config.settings             import FONT_FILE, TRAIN_FULL_MODE_FILES_PATH
 from main_classification_with_vlm    import print_cm
 from tqdm                            import tqdm
@@ -55,6 +54,32 @@ def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_
     if show_img:
         img.show()
 
+
+def get_all_bb(target_img):
+
+    base_prompt = ("Return all the bounding boxes of the military vehicles in this simulation image "
+                   "and classify it as SA-22 or SCUD or T-90 or Other")
+
+    # base_prompt = ("Detect all military vehicles in this simulation image"
+    #                "including tanks, armored personnel carriers, and armed trucks. "
+    #                "The vehicle weapons may hide in the image "
+    #                "Return the results as a JSON list of objects,"
+    #                " where each object has a 'label' and a 'box_2d' in [ymin, xmin, ymax, xmax] "
+    #                "format normalized to 1000")
+
+    content = []
+    add_text_line(content, base_prompt)
+    add_image_line(content, target_img)
+
+    messages = [
+        {
+            "role": "user",
+            "content": content
+        }
+    ]
+
+    return messages
+
 def get_list_of_bounding_boxes(client, full_image_path):
     messages = get_all_bb(full_image_path)
     response = client.chat.completions.create(
@@ -75,7 +100,7 @@ def get_list_of_bounding_boxes(client, full_image_path):
         print(f"Cant get bounding boxes, File: {os.path.basename(full_image_path)}, Got: {res_text}")
     return res_json
 
-def create_crop_files(image_path, model_bb_json_res):
+def create_crop_files(image_path, model_bb_json_res, min_crop_size):
 
     image         = Image.open(image_path).convert("RGB")
     width, height = image.size
@@ -88,13 +113,29 @@ def create_crop_files(image_path, model_bb_json_res):
         top        = (ymin / 1000) * height
         right      = (xmax / 1000) * width
         bottom     = (ymax / 1000) * height
+
         #draw.rectangle([left, top, right, bottom], outline="red", width=3)
-        crop_image = image.crop((left, top, right, bottom))
+        #crop_image = image.crop((left, top, right, bottom))
         #crop_image.show()
+
         crop_width  = int(right-left)
         crop_height = int(bottom-top)
         crop_size   = (crop_width * crop_height)/(width * height)
         l_crop_ratio.append(crop_size)
+
+        if crop_width < min_crop_size:
+            delta  = (min_crop_size - crop_width) / 2
+            left  -= delta
+            right += delta
+
+        if crop_height < min_crop_size:
+            delta = (min_crop_size - crop_height) / 2
+            top    -= delta
+            bottom += delta
+
+        crop_image = image.crop((left, top, right, bottom))
+        #crop_image.show()
+
         #print(f"[{os.path.basename(image_path)}] Image size: {image.size}, Crop #{i+1} size = ({crop_width},{crop_height}) [{crop_size:.3f}%]")
         crop_image.save(f"{TMP_FILES_FOLDER}/crop_{i+1}.jpg", "JPEG")
 
@@ -154,22 +195,41 @@ def get_classification_prompt(objects_path, num_of_objects):
 
     FEW_SHOTS_FOLDER = '/home/amitli/repo/dor6_vision/Testers/few_shots'
 
-    sa22_txt_1 = "Wheeled self‑propelled air‑defense vehicle with a multi‑axle truck chassis, olive‑green camouflage, roof‑mounted missile canisters and radar sensors on a raised turret, shown from an elevated angle in a military simulation environment."
-    sa22_txt_2 = "Top‑down view of a wheeled air‑defense combat vehicle with an armored cab, a raised turret carrying rectangular missile canisters and sensor housings, olive‑green military color, rendered in a realistic simulation environment on a paved road."
-    sa22_txt_3 = "Top‑down view of a wheeled air‑defense military vehicle with an armored cab, raised rear turret, and multiple long cylindrical weapon elements mounted lengthwise, olive‑green color, rendered in a realistic simulation environment on a paved road."
+    MY_FEW_SHOTS_DESCRIPTION = False
+    if MY_FEW_SHOTS_DESCRIPTION:
+        sa22_txt_1 = "Wheeled self‑propelled air‑defense vehicle with a multi‑axle truck chassis, olive‑green camouflage, roof‑mounted missile canisters and radar sensors on a raised turret, shown from an elevated angle in a military simulation environment."
+        sa22_txt_2 = "Top‑down view of a wheeled air‑defense combat vehicle with an armored cab, a raised turret carrying rectangular missile canisters and sensor housings, olive‑green military color, rendered in a realistic simulation environment on a paved road."
+        sa22_txt_3 = "Top‑down view of a wheeled air‑defense military vehicle with an armored cab, raised rear turret, and multiple long cylindrical weapon elements mounted lengthwise, olive‑green color, rendered in a realistic simulation environment on a paved road."
 
-    scud_txt_1 = "A heavy multi‑axle military missile transporter‑erector‑launcher carrying a long cylindrical ballistic missile, painted olive green with a tan missile, viewed from above at an angle on a paved road, rendered in a realistic military simulation style"
-    scud_txt_2 = "Side view of a long olive‑green missile transporter‑erector‑launcher vehicle with multiple axles, carrying a horizontally mounted cylindrical missile, rendered in a realistic military simulation environment on a paved road"
-    scud_txt_3 = "A tall ballistic missile standing vertically on a military launcher platform, tan missile body with a pointed nose cone, mounted on a green rectangular erector base, viewed from an elevated angle in a realistic military simulation environment."
+        scud_txt_1 = "A heavy multi‑axle military missile transporter‑erector‑launcher carrying a long cylindrical ballistic missile, painted olive green with a tan missile, viewed from above at an angle on a paved road, rendered in a realistic military simulation style"
+        scud_txt_2 = "Side view of a long olive‑green missile transporter‑erector‑launcher vehicle with multiple axles, carrying a horizontally mounted cylindrical missile, rendered in a realistic military simulation environment on a paved road"
+        scud_txt_3 = "A tall ballistic missile standing vertically on a military launcher platform, tan missile body with a pointed nose cone, mounted on a green rectangular erector base, viewed from an elevated angle in a realistic military simulation environment."
 
-    t90_txt_1 = "Top‑down view of an olive‑green tracked main battle tank with a central rotating turret and long forward‑facing gun barrel, rendered in a realistic military simulation environment on a paved road."
-    t90_txt_2 = "Elevated oblique view of an olive‑green tracked main battle tank with a central turret and long forward‑facing gun barrel, driving on a paved road, rendered in a realistic military simulation environment."
-    t90_txt_3 = "Oblique overhead view of an olive‑green tracked main battle tank with a central rounded turret and a long forward‑facing gun barrel, rendered in a realistic military simulation environment on a paved surface."
+        t90_txt_1 = "Top‑down view of an olive‑green tracked main battle tank with a central rotating turret and long forward‑facing gun barrel, rendered in a realistic military simulation environment on a paved road."
+        t90_txt_2 = "Elevated oblique view of an olive‑green tracked main battle tank with a central turret and long forward‑facing gun barrel, driving on a paved road, rendered in a realistic military simulation environment."
+        t90_txt_3 = "Oblique overhead view of an olive‑green tracked main battle tank with a central rounded turret and a long forward‑facing gun barrel, rendered in a realistic military simulation environment on a paved surface."
+    else:
+        sa22_txt_1 = "Multi-axle truck chassis with four visible wheels on one side; rear bed carries a large rectangular module supporting multiple parallel cylindrical launch tubes"
+        sa22_txt_2 = "Rectangular vehicle chassis with a large flatbed mounting two parallel, elongated cylindrical launch tubes on the rear section."
+        sa22_txt_3 = "Rectangular chassis with a rear-mounted multi-tube rocket launcher assembly and a large circular component situated between the tube banks."
+
+        scud_txt_1 = "Long rectangular chassis with multiple wheels, topped with a long, cylindrical launch tube extending along the length of the vehicle."
+        scud_txt_2 = "Tall, vertical cylindrical launch tubes mounted on a rectangular base chassis."
+        scud_txt_3 = ""
+
+        t90_txt_1 = "Tracked chassis with a centrally mounted turret and a long protruding gun barrel."
+        t90_txt_2 = "Rectangular hull with tracks, featuring a top-mounted turret and a long projecting barrel."
+        t90_txt_3 = "Tracked chassis with a rectangular hull, centrally mounted rotating turret, and a long forward-facing main gun barrel."
 
 
     content = []
+    add_text_line(content,'You are an expert in identifying military vehicles from simulation images')
     add_text_line(content, f"You receive {num_of_objects} patches of images from a military simulation and you must classify the military vehicle in the image, based only on the vehicle structure and mounted weapon system. Ignore background, terrain, and camera angle.")
     add_text_line(content,"Classify the military vehicle in each image. If the military vehicle is small or distant, consider its overall shape, color patterns.")
+
+    # 🔥
+    add_text_line(content,"Base your decision ONLY on visible structural features (e.g., wheels vs tracks, turret type, missile placement).")
+    add_text_line(content, "Do NOT rely on color, background")
 
     add_text_line(content, "VISUAL DIFFERENTIATORS")
     add_text_line(content, "SA-22")
@@ -177,6 +237,7 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_text_line(content,"2. Has a visible dual autocannons")
     add_text_line(content,"3. Has a radar module")
     add_text_line(content,"4. The missiles are mounted on the sides of the turret, not in the center.")
+    add_text_line(content,"5. Has cabin at the front and flatbed rear layout")
 
     add_text_line(content, "SCUD")
     add_text_line(content, "1. carry one large ballistic missile")
@@ -187,11 +248,15 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_text_line(content, "1. TANK")
     add_text_line(content, "2. Large gun turret with a single main cannon")
     add_text_line(content, "3. Prominent rotating turret")
-    #add_text_line(content, "4. Tracks instead of wheels")
+    add_text_line(content, "4. Tracks instead of wheels")
 
     add_text_line(content, "Reject SA-22 if:")
     add_text_line(content, "1. The missiles are NOT mounted on the sides of the turret")
     add_text_line(content, "2. Contains one missile")
+
+    add_text_line(content, "Reject T-90:")
+    add_text_line(content, "1. missile launcher")
+
 
 
 
@@ -208,8 +273,8 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_text_line(content, f"{scud_txt_1} Answer: SCUD")
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_2.JPG')
     add_text_line(content, f"{scud_txt_2} Answer: SCUD")
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_3.JPG')
-    add_text_line(content, f"{scud_txt_3} Answer: SCUD")
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_3.JPG')
+    # add_text_line(content, f"{scud_txt_3} Answer: SCUD")
 
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_1.JPG')
     add_text_line(content, f"{t90_txt_1} Answer: T-90")
@@ -226,7 +291,12 @@ def get_classification_prompt(objects_path, num_of_objects):
 
     add_text_line(content, "Based on the examples above, which class does the following images belong to? If the image does not fit any of the three, answer 'none'. Answer only: 'SA-22', 'SCUD', 'T-90', or 'none' or 'Uncertain'.")
     #add_text_line(content,"for each image, describe the shape and color, then provide the classification")
-    add_text_line(content, "for each image, return a JSON object with fields: description, classification")
+    #add_text_line(content, "for each image, return a JSON object with fields: description, classification")
+    add_text_line(content,"For each image, first analyze the visual features step-by-step internally (do not output this reasoning).")
+    add_text_line(content, "Then return a concise result.")
+    add_text_line(content, "Output ONLY a JSON object with fields:")
+    add_text_line(content, "- description: brief structural description (1 sentence)")
+    add_text_line(content, "- classification: one of ['SA-22','SCUD','T-90','none','Uncertain']")
     for i in range(num_of_objects):
         add_text_line(content, f"Image: {i+1}")
         crop_file_path = f"{objects_path}/crop_{i + 1}.jpg"
@@ -310,10 +380,11 @@ def test_on_train():
 
     client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
 
-    #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_500.csv')
-    df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
+    df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_500.csv')
+    #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
     df = df.rename(columns={'filename': 'jpg_file', 'label_name': 'gt'})
     df = df[df['gt'] != 'Other']
+    df = df.groupby('gt', group_keys=False).sample(frac=0.3, random_state=42)
 
     l_jpg_file    = []
     l_gt          = []
@@ -332,7 +403,7 @@ def test_on_train():
             model_json_res = get_list_of_bounding_boxes(client, full_image_path)
             with open(BB_TMP_FILE, "w") as f:
                 json.dump(model_json_res, f, indent=4)
-            crop_ratio           = create_crop_files(full_image_path, model_json_res)
+            crop_ratio           = create_crop_files(full_image_path, model_json_res, 128)
             classifcation_result = classify_objects(client, TMP_FILES_FOLDER, len(model_json_res))
             classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
             classifcation_result = json.loads(classifcation_result)
@@ -356,7 +427,7 @@ def test_on_train():
 
 
     df_tmp = pd.DataFrame({"jpg_file": l_jpg_file, 'gt': l_gt, 'prediction': l_prediction, 'description': l_description, "diff_time": l_time, 'crop_ratio': l_crop_ratio})
-    df_tmp.to_csv('tmp2.csv', index=False)
+    df_tmp.to_csv('tmp.csv', index=False)
     print_cm(df_tmp)
 
 if __name__ == "__main__":
@@ -365,47 +436,11 @@ if __name__ == "__main__":
 
     if RUN_TRAIN_PIPELINE:
         test_on_train()
-        df_tmp          = pd.read_csv('tmp2.csv')
-        df_tmp = df_tmp[df_tmp['gt'] != 'prediction']
-        print(df_tmp.crop_ratio.values)
-
-        df_tmp = pd.read_csv('tmp2.csv')
-        df_tmp = df_tmp[df_tmp['gt'] == 'prediction']
-        print(df_tmp.crop_ratio.values)
-        # df_tmp = pd.read_csv('tmp.csv')
-        # df_sa22         = df_tmp[df_tmp['gt'] == 'SA-22']
-        # df_sa22_as_scud = df_sa22[df_sa22['prediction'] == 'SCUD']
-        # #print(df_sa22_as_scud[['jpg_file', 'description']].head())
-        # for i in range(15):
-        #     print(f'{df_sa22_as_scud.jpg_file.values[i]} {df_sa22_as_scud.description.values[i]}')
-        #print_cm(df_tmp)
-        #       SA-22    SCUD   T-90
-        # SA-22  62.79   34.88   2.33
-        # SCUD    0.00  100.00   0.00
-        # T-90   11.11    4.44  84.44
-
-        # Confusion Matrix (Percentages):
-        #        SA-22    SCUD   T-90
-        # SA-22  62.22   35.56   2.22
-        # SCUD    0.00  100.00   0.00
-        # T-90   12.50    8.33  79.17
         exit(0)
 
     client          = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
 
-    #x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_3/frame_273_00_06_418.jpg'
-    #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_344_00_07_999.jpg'
-    #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_473_00_10_999.jpg'
-    full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_1/frame_247_00_06_363.jpg'
-    # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_287_00_06_944.jpg'
-    # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_4/frame_328_00_07_936.jpg'
-    #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_481_00_12_790.jpg'
-    #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_629_00_16_725.jpg'
-    # x full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_259_00_06_887.jpg'
-
-
-
-
+    full_image_path = '/home/amitli/repo/VisionModels/input_images/dor_6_full_db/Train_A/data/Images/11-20-40_924400_966.jpg'
     #draw_box(full_image_path, l_cords=[], output_jpg_file=None, show_img=True)
 
     DRAW_UPSAMPLE     = False
