@@ -3,6 +3,7 @@ from PIL                             import Image, ImageDraw, ImageFont
 from app_config.settings             import FONT_FILE, TRAIN_FULL_MODE_FILES_PATH
 from main_classification_with_vlm    import print_cm
 from tqdm                            import tqdm
+from pathlib                         import Path
 
 import pandas                        as pd
 import numpy                         as np
@@ -430,39 +431,24 @@ def test_on_train():
     df_tmp.to_csv('tmp.csv', index=False)
     print_cm(df_tmp)
 
-if __name__ == "__main__":
-
-    RUN_TRAIN_PIPELINE = True
-
-    if RUN_TRAIN_PIPELINE:
-        test_on_train()
-        exit(0)
-
-    client          = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
-
-    full_image_path = '/home/amitli/repo/VisionModels/input_images/dor_6_full_db/Train_A/data/Images/11-20-40_924400_966.jpg'
-    #draw_box(full_image_path, l_cords=[], output_jpg_file=None, show_img=True)
-
-    DRAW_UPSAMPLE     = False
+def run_pipeline(client, full_image_path):
     GET_LIST_OF_BB    = True
     CREATE_CROP_FILES = True
     CLASSIFY          = True
 
-    if DRAW_UPSAMPLE:
-        sim_img = simulate_vlm_view('/Testers/tmp_files/rec3_frame_273_00_06_418/crop_6.jpg')
-        sim_img.show()
+
     if GET_LIST_OF_BB:
         start_time = time.time()
         model_json_res = get_list_of_bounding_boxes(client, full_image_path)
         end_time = time.time()
         with open(BB_TMP_FILE, "w") as f:
             json.dump(model_json_res, f, indent=4)
-        print(f"[{(end_time-start_time):.2f} sec] Get list of BB")
+        print(f"[{(end_time - start_time):.2f} sec] Get list of BB")
     if CREATE_CROP_FILES:
         with open(BB_TMP_FILE, "r") as f:
             model_json_res = json.load(f)
         start_time = time.time()
-        create_crop_files(full_image_path, model_json_res)
+        create_crop_files(full_image_path, model_json_res, 128)
         end_time = time.time()
         print(f"[{(end_time - start_time):.2f} sec] Create crop files")
     if CLASSIFY:
@@ -471,22 +457,70 @@ if __name__ == "__main__":
         start_time = time.time()
         classifcation_result = classify_objects(client, TMP_FILES_FOLDER, len(model_json_res))
         classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
-        classifcation_result = json.loads(classifcation_result)
+        try:
+            classifcation_result = json.loads(classifcation_result)
+        except Exception as e:
+            model_json_res = {}
         end_time = time.time()
 
-        l_prediction         = []
-        l_bb                 = []
+        l_prediction = []
+        l_bb = []
         for i in range(len(model_json_res)):
-            pred           = classifcation_result[i]
+            if type(classifcation_result) == dict:
+                pred = classifcation_result
+            else:
+                pred = classifcation_result[i]
             classification = pred["classification"]
-            description    = pred["description"]
+            description = pred["description"]
 
-            l_prediction.append(f"[{i+1}] {classification}")
-            l_bb        .append(model_json_res[i]['box_2d'])
-            print(f'\t[{i+1}] [{classification}] {description}')
+            l_prediction.append(f"[{i + 1}] {classification}")
+            l_bb.append(model_json_res[i]['box_2d'])
+            print(f'\t[{i + 1}] [{classification}] {description}')
 
         print(f"[{(end_time - start_time):.2f} sec] Object classification")
+
+    return l_prediction, l_bb
+
+if __name__ == "__main__":
+
+    DRAW_UPSAMPLE      = False
+    RUN_TRAIN_PIPELINE = False
+    RUN_SINGLE_TEST    = True
+    RUN_IN_LOOP        = False
+
+    if RUN_TRAIN_PIPELINE:
+        test_on_train()
+        exit(0)
+
+    client          = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
+
+    if DRAW_UPSAMPLE:
+        sim_img = simulate_vlm_view('/Testers/tmp_files/rec3_frame_273_00_06_418/crop_6.jpg')
+        sim_img.show()
+
+    if RUN_SINGLE_TEST:
+        full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_3/frame_0_00_00_000.jpg'
+        l_prediction, l_bb = run_pipeline(client, full_image_path)
         draw_box(full_image_path, l_bb, output_jpg_file=None, l_prediction=l_prediction, show_img=True)
+
+    if RUN_IN_LOOP:
+        OUTPUT_FOLDER = f'/home/amitli/repo/dor6_vision/Testers/tmp_results/'
+        l_folders = glob.glob('/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/*')
+        l_folders.sort()
+        for folder in l_folders:
+
+            base_folder_name = os.path.basename(folder)
+            Path(f'{OUTPUT_FOLDER}{base_folder_name}').mkdir(parents=True, exist_ok=True)
+
+            l_files = glob.glob(folder + '/*.jpg')
+            for full_image_path in l_files:
+                print(f"\t --- Process: {folder} {os.path.basename(full_image_path)} ---")
+                l_prediction, l_bb = run_pipeline(client, full_image_path)
+                if len(l_bb) > 0:
+                    #print(f"{os.path.basename(full_image_path)}")
+                    output_jpg = f'{OUTPUT_FOLDER}{base_folder_name}/{os.path.basename(full_image_path)}'
+                    draw_box(full_image_path, l_bb, output_jpg_file=output_jpg, l_prediction=l_prediction, show_img=False)
+
 
 
 
