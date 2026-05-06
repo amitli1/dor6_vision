@@ -23,4 +23,11 @@
 | Video Length)           | 597.93 seconds (9.97 minutes) |
 | Frames per Second (FPS) | 30.0                          |
 
+# Params:
+| Param             |                                                                                      |
+|-------------------|--------------------------------------------------------------------------------------|
+| temperature = 1.0 | natural level of randomness                                                          |
+| top_p = 0.95      | take the smallest set whose cumulative probability ≥ 0.95 (Cuts off unlikely tokens) |
+| top_k = 64        | Only consider the top 64 most probable tokens                                                                                |
+                                                                           |
 
