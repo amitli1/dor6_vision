@@ -18,6 +18,7 @@ import base64
 TMP_FILES_FOLDER = '/home/amitli/repo/dor6_vision/Testers/tmp_files'
 BB_TMP_FILE      = "/home/amitli/repo/dor6_vision/Testers/tmp_files/bb.json"
 
+
 def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_img=False):
     # Load the image
     img           = Image.open(image_path)
@@ -25,10 +26,10 @@ def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_
     width, height = img.size
     font          = ImageFont.truetype(FONT_FILE, size=32)
 
-    pred_str = ""
-    for i in range(len(l_prediction)):
-        pred_str += l_prediction[i] + "\n"
-    draw.text((1, 1), pred_str, fill="red", font=font)
+    # pred_str = ""
+    # for i in range(len(l_prediction)):
+    #     pred_str += l_prediction[i] + "\n"
+    # draw.text((1, 1), pred_str, fill="red", font=font)
 
 
     if type(l_cords) == str:
@@ -45,10 +46,10 @@ def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_
 
         # 3. Draw the rectangle
         # PIL expects [xmin, ymin, xmax, ymax]
-        #draw.rectangle([left, top, right, bottom], outline="red", width=3)
-        # if l_prediction is not None:
-        #     draw.text((left+50, top), l_prediction[i], fill="red", font=font)
-        draw.text((left+50, top), f"{i+1}", fill="red", font=font)
+        draw.rectangle([left, top, right, bottom], outline="red", width=1)
+        if l_prediction is not None:
+            draw.text((left+50, top), l_prediction[i], fill="red", font=font)
+        #draw.text((left+50, top), f"{i+1}", fill="red", font=font)
 
     if output_jpg_file:
         img.save(output_jpg_file)
@@ -86,6 +87,9 @@ def get_list_of_bounding_boxes(client, full_image_path):
     response = client.chat.completions.create(
         model="google/gemma-4-31B-it",
         messages=messages,
+        temperature=0.0,
+        top_p=1,
+        seed=42,
         extra_body={
             "mm_processor_kwargs": {
                 "max_soft_tokens": 1120
@@ -169,11 +173,14 @@ def classify_objects(client, objects_path, num_of_objects):
 
     response = client.chat.completions.create(
         model="google/gemma-4-31B-it",
-        messages=messages,
+        messages   = messages,
+        temperature= 0.0,
+        top_p      = 1,
+        seed       = 42,
         extra_body={
             "guided_json": schema,
             "mm_processor_kwargs": {
-                "max_soft_tokens": 280 #140
+                "max_soft_tokens": 140 #140
             }
         }
     )
@@ -195,33 +202,25 @@ def add_image_line(content, image_path):
 def get_classification_prompt(objects_path, num_of_objects):
 
     FEW_SHOTS_FOLDER = '/home/amitli/repo/dor6_vision/Testers/few_shots'
+    #SA_22 = "SA-22"
+    SA_22 = "Class_1"
+    #SCUD  = "SCUD"
+    SCUD  = "Class_2"
+    #T_90  = "T-90"
+    T_90  = "Class_3"
 
-    MY_FEW_SHOTS_DESCRIPTION = False
-    if MY_FEW_SHOTS_DESCRIPTION:
-        sa22_txt_1 = "Wheeled self‑propelled air‑defense vehicle with a multi‑axle truck chassis, olive‑green camouflage, roof‑mounted missile canisters and radar sensors on a raised turret, shown from an elevated angle in a military simulation environment."
-        sa22_txt_2 = "Top‑down view of a wheeled air‑defense combat vehicle with an armored cab, a raised turret carrying rectangular missile canisters and sensor housings, olive‑green military color, rendered in a realistic simulation environment on a paved road."
-        sa22_txt_3 = "Top‑down view of a wheeled air‑defense military vehicle with an armored cab, raised rear turret, and multiple long cylindrical weapon elements mounted lengthwise, olive‑green color, rendered in a realistic simulation environment on a paved road."
 
-        scud_txt_1 = "A heavy multi‑axle military missile transporter‑erector‑launcher carrying a long cylindrical ballistic missile, painted olive green with a tan missile, viewed from above at an angle on a paved road, rendered in a realistic military simulation style"
-        scud_txt_2 = "Side view of a long olive‑green missile transporter‑erector‑launcher vehicle with multiple axles, carrying a horizontally mounted cylindrical missile, rendered in a realistic military simulation environment on a paved road"
-        scud_txt_3 = "A tall ballistic missile standing vertically on a military launcher platform, tan missile body with a pointed nose cone, mounted on a green rectangular erector base, viewed from an elevated angle in a realistic military simulation environment."
+    sa22_txt_1 = "Multi-axle truck chassis with four visible wheels on one side; rear bed carries a large rectangular module supporting multiple parallel cylindrical launch tubes"
+    sa22_txt_2 = "Rectangular vehicle chassis with a large flatbed mounting two parallel, elongated cylindrical launch tubes on the rear section."
+    sa22_txt_3 = "Rectangular chassis with a rear-mounted multi-tube rocket launcher assembly and a large circular component situated between the tube banks."
 
-        t90_txt_1 = "Top‑down view of an olive‑green tracked main battle tank with a central rotating turret and long forward‑facing gun barrel, rendered in a realistic military simulation environment on a paved road."
-        t90_txt_2 = "Elevated oblique view of an olive‑green tracked main battle tank with a central turret and long forward‑facing gun barrel, driving on a paved road, rendered in a realistic military simulation environment."
-        t90_txt_3 = "Oblique overhead view of an olive‑green tracked main battle tank with a central rounded turret and a long forward‑facing gun barrel, rendered in a realistic military simulation environment on a paved surface."
-    else:
-        sa22_txt_1 = "Multi-axle truck chassis with four visible wheels on one side; rear bed carries a large rectangular module supporting multiple parallel cylindrical launch tubes"
-        sa22_txt_2 = "Rectangular vehicle chassis with a large flatbed mounting two parallel, elongated cylindrical launch tubes on the rear section."
-        sa22_txt_3 = "Rectangular chassis with a rear-mounted multi-tube rocket launcher assembly and a large circular component situated between the tube banks."
+    scud_txt_1 = "Long rectangular chassis with multiple wheels, topped with a long, cylindrical launch tube extending along the length of the vehicle."
+    #scud_txt_2 = "Tall, vertical cylindrical launch tubes mounted on a rectangular base chassis."
+    scud_txt_3 = "A heavy-duty vehicle with multiple axles with a long, cylindrical tube (missile) mounted on top of the chassis"
 
-        scud_txt_1 = "Long rectangular chassis with multiple wheels, topped with a long, cylindrical launch tube extending along the length of the vehicle."
-        scud_txt_2 = "Tall, vertical cylindrical launch tubes mounted on a rectangular base chassis."
-        scud_txt_3 = ""
-
-        t90_txt_1 = "Tracked chassis with a centrally mounted turret and a long protruding gun barrel."
-        t90_txt_2 = "Rectangular hull with tracks, featuring a top-mounted turret and a long projecting barrel."
-        t90_txt_3 = "Tracked chassis with a rectangular hull, centrally mounted rotating turret, and a long forward-facing main gun barrel."
-
+    t90_txt_1 = "Tracked chassis with a centrally mounted turret and a long protruding gun barrel."
+    t90_txt_2 = "Rectangular hull with tracks, featuring a top-mounted turret and a long projecting barrel."
+    t90_txt_3 = "Tracked chassis with a rectangular hull, centrally mounted rotating turret, and a long forward-facing main gun barrel."
 
     content = []
     add_text_line(content,'You are an expert in identifying military vehicles from simulation images')
@@ -229,75 +228,82 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_text_line(content,"Classify the military vehicle in each image. If the military vehicle is small or distant, consider its overall shape, color patterns.")
 
     # 🔥
-    add_text_line(content,"Base your decision ONLY on visible structural features (e.g., wheels vs tracks, turret type, missile placement).")
+    add_text_line(content,"Base your decision ONLY on visible structural features (e.g., wheels vs tracks, turret type, missile placement, number of missiles).")
     add_text_line(content, "Do NOT rely on color, background")
 
     add_text_line(content, "VISUAL DIFFERENTIATORS")
-    add_text_line(content, "SA-22")
+
+    add_text_line(content, f"{SA_22}")
     add_text_line(content,"1. A truck‑mounted system")
     add_text_line(content,"2. Has a visible dual autocannons")
     add_text_line(content,"3. Has a radar module")
     add_text_line(content,"4. The missiles are mounted on the sides of the turret, not in the center.")
     add_text_line(content,"5. Has cabin at the front and flatbed rear layout")
+    add_text_line(content,"6. It must have missiles on it") # new
 
-    add_text_line(content, "SCUD")
+    add_text_line(content, f"{SCUD}")
     add_text_line(content, "1. carry one large ballistic missile")
     add_text_line(content, "2. Very long TEL truck")
     add_text_line(content, "3. No radar antennas")
+    add_text_line(content, "4. Definitively identify one missile")
 
-    add_text_line(content, "T-90")
+    add_text_line(content, f"{T_90}")
     add_text_line(content, "1. TANK")
     add_text_line(content, "2. Large gun turret with a single main cannon")
     add_text_line(content, "3. Prominent rotating turret")
     add_text_line(content, "4. Tracks instead of wheels")
 
-    add_text_line(content, "Reject SA-22 if:")
+    add_text_line(content, f"Reject {SA_22} if:")
     add_text_line(content, "1. The missiles are NOT mounted on the sides of the turret")
     add_text_line(content, "2. Contains one missile")
+    add_text_line(content, "3. Launch tubes protrude out of the front of the truck")
+    add_text_line(content, "4. No clear missiles in the image")
+    add_text_line(content, "5. Three long missiles on a launcher arm")
 
-    add_text_line(content, "Reject T-90:")
+    add_text_line(content, f"Reject {T_90} if:")
     add_text_line(content, "1. missile launcher")
+    add_text_line(content, "2. There is no turret")
 
-
+    add_text_line(content, f"Reject {SCUD} if:")
+    add_text_line(content, "1. More than one missile")
+    add_text_line(content, "2. There is no missile")
 
 
     add_text_line(content,"Examples:")
 
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_1.JPG')
-    add_text_line(content, f"{sa22_txt_1} Answer: SA-22")
+    add_text_line(content, f"{sa22_txt_1} Answer: {SA_22}")
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_2.JPG')
-    add_text_line(content, f"{sa22_txt_2} Answer: SA-22")
+    add_text_line(content, f"{sa22_txt_2} Answer: {SA_22}")
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_3.JPG')
-    add_text_line(content, f"{sa22_txt_3} Answer: SA-22")
+    add_text_line(content, f"{sa22_txt_3} Answer: {SA_22}")
 
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_1.JPG')
-    add_text_line(content, f"{scud_txt_1} Answer: SCUD")
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_2.JPG')
-    add_text_line(content, f"{scud_txt_2} Answer: SCUD")
-    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_3.JPG')
-    # add_text_line(content, f"{scud_txt_3} Answer: SCUD")
+    add_text_line(content, f"{scud_txt_1} Answer: {SCUD}")
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_2.JPG')
+    # add_text_line(content, f"{scud_txt_2} Answer: {SCUD}")
+    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_3.JPG')
+    add_text_line(content, f"{scud_txt_3} Answer: {SCUD}")
 
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_1.JPG')
-    add_text_line(content, f"{t90_txt_1} Answer: T-90")
+    add_text_line(content, f"{t90_txt_1} Answer: {T_90}")
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_2.JPG')
-    add_text_line(content, f"{t90_txt_2} Answer: T-90")
+    add_text_line(content, f"{t90_txt_2} Answer: {T_90}")
     add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_3.JPG')
-    add_text_line(content, f"{t90_txt_3} Answer: T-90")
+    add_text_line(content, f"{t90_txt_3} Answer: {T_90}")
 
     # --- no guess
     #add_text_line(content, 'If an image is too blurry to identify, label it as "Uncertain"')
     add_text_line(content, "If a clear object from the known classes is visible → output the class")
     add_text_line(content, 'If multiple classes are plausible or visibility is poor → output "Uncertain"')
-    add_text_line(content, "Do not guess.")
+    add_text_line(content, '"Do not guess. If you are not sure with high certainty → output "Uncertain"')
 
-    add_text_line(content, "Based on the examples above, which class does the following images belong to? If the image does not fit any of the three, answer 'none'. Answer only: 'SA-22', 'SCUD', 'T-90', or 'none' or 'Uncertain'.")
-    #add_text_line(content,"for each image, describe the shape and color, then provide the classification")
-    #add_text_line(content, "for each image, return a JSON object with fields: description, classification")
+    add_text_line(content, f"Based on the examples above, which class does the following images belong to? If the image does not fit any of the three, answer 'none'. Answer only: '{SA_22}', '{SCUD}', '{T_90}', or 'none' or 'Uncertain'.")
     add_text_line(content,"For each image, first analyze the visual features step-by-step internally (do not output this reasoning).")
     add_text_line(content, "Then return a concise result.")
     add_text_line(content, "Output ONLY a JSON object with fields:")
-    add_text_line(content, "- description: brief structural description (1 sentence)")
-    add_text_line(content, "- classification: one of ['SA-22','SCUD','T-90','none','Uncertain']")
+    add_text_line(content, "- description: brief structural description include number of missiles (1 sentence)")
+    add_text_line(content, f"- classification: one of ['{SA_22}','{SCUD}','{T_90}','none','Uncertain']")
     for i in range(num_of_objects):
         add_text_line(content, f"Image: {i+1}")
         crop_file_path = f"{objects_path}/crop_{i + 1}.jpg"
@@ -377,15 +383,29 @@ def simulate_vlm_view(image_path, target_res=(224, 224), patch_size=16):
 
     return Image.fromarray(arr)
 
+def update_prediction(prediction):
+    if prediction.lower().find('class') == -1:
+        return prediction
+    else:
+        if prediction.lower() == 'class_1':
+            return "SA-22"
+        if prediction.lower() == 'class_2':
+            return "SCUD"
+        if prediction.lower() == 'class_3':
+            return "T-90"
+        return prediction
+
+
+
 def test_on_train():
 
     client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
 
-    df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_500.csv')
-    #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
+    #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_500.csv')
+    df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
     df = df.rename(columns={'filename': 'jpg_file', 'label_name': 'gt'})
     df = df[df['gt'] != 'Other']
-    df = df.groupby('gt', group_keys=False).sample(frac=0.3, random_state=42)
+    #df = df.groupby('gt', group_keys=False).sample(frac=0.4, random_state=42)
 
     l_jpg_file    = []
     l_gt          = []
@@ -393,6 +413,7 @@ def test_on_train():
     l_description = []
     l_time        = []
     l_crop_ratio  = []
+    l_crop_values = []
 
     for i in tqdm(range(len(df))):
         jpg_file        = df['jpg_file'].values[i]
@@ -411,6 +432,7 @@ def test_on_train():
             if type(classifcation_result) == list:
                 classifcation_result = classifcation_result[0]
             prediction           = classifcation_result["classification"]
+            prediction           = update_prediction(prediction)
             description          = classifcation_result["description"]
         except Exception as e:
             print(f"Error in {jpg_file}")
@@ -425,10 +447,11 @@ def test_on_train():
         l_description .append(description)
         l_time        .append(end_time-start_time)
         l_crop_ratio  .append(crop_ratio)
+        l_crop_values .append(model_json_res)
 
 
-    df_tmp = pd.DataFrame({"jpg_file": l_jpg_file, 'gt': l_gt, 'prediction': l_prediction, 'description': l_description, "diff_time": l_time, 'crop_ratio': l_crop_ratio})
-    df_tmp.to_csv('tmp.csv', index=False)
+    df_tmp = pd.DataFrame({"jpg_file": l_jpg_file, 'gt': l_gt, 'prediction': l_prediction, 'description': l_description, "diff_time": l_time, 'crop_ratio': l_crop_ratio, 'crop_values': l_crop_values})
+    df_tmp.to_csv('tmp_3.csv', index=False)
     print_cm(df_tmp)
 
 def run_pipeline(client, full_image_path):
@@ -471,6 +494,7 @@ def run_pipeline(client, full_image_path):
             else:
                 pred = classifcation_result[i]
             classification = pred["classification"]
+            classification = update_prediction(classification)
             description = pred["description"]
 
             l_prediction.append(f"[{i + 1}] {classification}")
@@ -481,12 +505,28 @@ def run_pipeline(client, full_image_path):
 
     return l_prediction, l_bb
 
+def plot_time_avg(df):
+    import matplotlib.pyplot as plt
+    avg_time_per_obj = df.groupby('num_objs_in_img')['time_diff'].mean()
+
+    # make sure x is sorted
+    avg_time_per_obj = avg_time_per_obj.sort_index()
+
+    # plot
+    plt.figure()
+    plt.plot(avg_time_per_obj.index, avg_time_per_obj.values, marker='o')
+    plt.xlabel('Number of objects in image')
+    plt.ylabel('Average time_diff')
+    plt.title('Average time_diff vs number of objects')
+    plt.grid(True)
+    plt.show()
+
 if __name__ == "__main__":
 
     DRAW_UPSAMPLE      = False
-    RUN_TRAIN_PIPELINE = False
-    RUN_SINGLE_TEST    = True
-    RUN_IN_LOOP        = False
+    RUN_TRAIN_PIPELINE = True
+    RUN_SINGLE_TEST    = False
+    RUN_IN_TEST_LOOP   = False
 
     if RUN_TRAIN_PIPELINE:
         test_on_train()
@@ -499,14 +539,21 @@ if __name__ == "__main__":
         sim_img.show()
 
     if RUN_SINGLE_TEST:
-        full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_3/frame_0_00_00_000.jpg'
+
+        #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_430_00_09_999.jpg'
+        #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_1/frame_95_00_02_447.jpg'
+        #full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_1/frame_228_00_05_874.jpg'
+        full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_1/frame_285_00_07_342.jpg'
         l_prediction, l_bb = run_pipeline(client, full_image_path)
         draw_box(full_image_path, l_bb, output_jpg_file=None, l_prediction=l_prediction, show_img=True)
 
-    if RUN_IN_LOOP:
+    if RUN_IN_TEST_LOOP:
         OUTPUT_FOLDER = f'/home/amitli/repo/dor6_vision/Testers/tmp_results/'
-        l_folders = glob.glob('/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/*')
+        l_folders     = glob.glob('/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/*')
         l_folders.sort()
+        l_time_diff       = []
+        l_num_objs_in_img = []
+        l_all_files       = []
         for folder in l_folders:
 
             base_folder_name = os.path.basename(folder)
@@ -515,15 +562,19 @@ if __name__ == "__main__":
             l_files = glob.glob(folder + '/*.jpg')
             for full_image_path in l_files:
                 print(f"\t --- Process: {folder} {os.path.basename(full_image_path)} ---")
+                start_time         = time.time()
                 l_prediction, l_bb = run_pipeline(client, full_image_path)
+                end_time           = time.time()
+
+                l_time_diff       .append(end_time - start_time)
+                l_num_objs_in_img .append(len(l_bb))
+                l_all_files       .append(full_image_path)
+
                 if len(l_bb) > 0:
                     #print(f"{os.path.basename(full_image_path)}")
                     output_jpg = f'{OUTPUT_FOLDER}{base_folder_name}/{os.path.basename(full_image_path)}'
                     draw_box(full_image_path, l_bb, output_jpg_file=output_jpg, l_prediction=l_prediction, show_img=False)
 
-
-
-
-
-
-
+        df_statisics = pd.DataFrame({"jpg_file": l_all_files, "time_diff": l_time_diff, "num_objs_in_img": l_num_objs_in_img})
+        df_statisics.to_csv(f'{OUTPUT_FOLDER}statistics.csv', index=False)
+        plot_time_avg(df_statisics)
