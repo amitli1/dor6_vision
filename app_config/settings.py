@@ -1,7 +1,7 @@
 CSV_TRAIN_POINT_FILE = "/home/amitli/repo/dor6_vision/Dataset/train.csv"
 CSV_TRAIN_EMBEDDING_FILE = "/home/amitli/repo/dor6_vision/Dataset/embeddings_train_crop.csv"
 POINTING_IMAGE_WARMUP = "/home/amitli/repo/dor6_vision/pointing_agent/car.png"
-FONT_FILE = "/usr/share/fonts/truetype/freefont/FreeMono.ttf"
+FONT_FILE = "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf"
 
 TRAIN_CROP_FILES = "/home/amitli/repo/dor6_vision/Dataset/train_crop_files/"
 TRAIN_SEGMENT_FILES = "/home/amitli/repo/dor6_vision/Dataset/train_segment_files/"
