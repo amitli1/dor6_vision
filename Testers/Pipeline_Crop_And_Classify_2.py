@@ -17,8 +17,10 @@ import base64
 
 TMP_FILES_FOLDER = '/home/amitli/repo/dor6_vision/Testers/tmp_files'
 BB_TMP_FILE = "/home/amitli/repo/dor6_vision/Testers/tmp_files/bb.json"
-MODEL = "gemma-4-31b-it"
-#MODEL = google/gemma-4-31B-it"
+MODEL = "gemma-4-31b-it" #MODEL = google/gemma-4-31B-it"
+#MODEL = "allenai/Molmo2-4B"
+#BASE_URL = "http://localhost:9100/v1"
+BASE_URL = "http://localhost:9000/v1"
 
 
 def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_img=False):
@@ -62,13 +64,6 @@ def get_all_bb(target_img):
     base_prompt = ("Return all the bounding boxes of the military vehicles in this simulation image "
                    "and classify it as SA-22 or SCUD or T-90 or Other")
 
-    # base_prompt = ("Detect all military vehicles in this simulation image"
-    #                "including tanks, armored personnel carriers, and armed trucks. "
-    #                "The vehicle weapons may hide in the image "
-    #                "Return the results as a JSON list of objects,"
-    #                " where each object has a 'label' and a 'box_2d' in [ymin, xmin, ymax, xmax] "
-    #                "format normalized to 1000")
-
     content = []
     add_text_line(content, base_prompt)
     add_image_line(content, target_img)
@@ -85,6 +80,37 @@ def get_all_bb(target_img):
 
 def get_list_of_bounding_boxes(client, full_image_path):
     messages = get_all_bb(full_image_path)
+    schema = {
+            "type": "object",
+            "properties": {
+                "vehicles": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "classification": {
+                                "type": "string",
+                                "enum": ["SA-22", "SCUD", "T-90", "Other"]
+                            },
+                            "bounding_box": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "description": "Normalized coordinates [ymin, xmin, ymax, xmax]",
+                                "minItems": 4,
+                                "maxItems": 4
+                            },
+                            "confidence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                            }
+                        },
+                        "required": ["classification", "bounding_box"]
+                    }
+                }
+            },
+            "required": ["vehicles"]
+        }
     response = client.chat.completions.create(
         model=MODEL,
         messages=messages,
@@ -92,6 +118,7 @@ def get_list_of_bounding_boxes(client, full_image_path):
         top_p=1,
         seed=42,
         extra_body={
+            "guided_json": schema,
             "mm_processor_kwargs": {
                 "max_soft_tokens": 1120
             }
@@ -356,7 +383,8 @@ def update_prediction(prediction):
 
 
 def test_on_train():
-    client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
+
+    client = OpenAI(api_key="EMPTY", base_url=BASE_URL)
 
     #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_500.csv')
     #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
@@ -503,7 +531,7 @@ if __name__ == "__main__":
         test_on_train()
         exit(0)
 
-    #client = OpenAI(api_key="EMPTY", base_url="http://localhost:9000/v1")
+    #client = OpenAI(api_key="EMPTY", base_url=BASE_URL)
     client = OpenAI(
         api_key="gpustack_a853c8a4cf87ee4b_6d6d0ade6d71fbadf5b015e04fb5e825",
         base_url="http://10.53.160.148/v1"
