@@ -17,7 +17,7 @@ sudo docker run --runtime=nvidia     -e NVIDIA_VISIBLE_DEVICES=all      -v ~/.ca
 
 # VLLM (molmo2):
 ```
-sudo docker run --runtime=nvidia     -e NVIDIA_VISIBLE_DEVICES=all     -v ~/.cache/huggingface:/root/.cache/huggingface     -p 9100:8000     --ipc=host     vllm/vllm-openai:latest     --model allenai/Molmo2-4B     --trust-remote-code     --max-num-batched-tokens 4096 --max-model-len 4096 --gpu-memory-utilization 0.95 --dtype bfloat16
+sudo docker run --runtime=nvidia     -e NVIDIA_VISIBLE_DEVICES=all     -v ~/.cache/huggingface:/root/.cache/huggingface     -p 9100:8000     --ipc=host     vllm/vllm-openai:latest     --model allenai/Molmo2-4B     --trust-remote-code     --max-num-batched-tokens 6144 --max-model-len 6144 --gpu-memory-utilization 0.95 --dtype bfloat16
 ```
 
 # concepts:
