@@ -393,17 +393,21 @@ def create_molmo_crop_files(full_image_path, model_point_output, radius):
 
 
 def draw_with_molmo_bb(full_image_path, model_point_output):
-    img = Image.open(full_image_path).convert("RGB")
+    img  = Image.open(full_image_path).convert("RGB")
     draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype(FONT_FILE, size=32)
 
-    w, h = img.size
+    w, h   = img.size
     radius = 100  # Size of the circle
+
 
     # Iterate in steps of 3: [ID, Y, X]
     # model_output =  [1, 1, 89, 844, 2, 289, 124, 3, 338, 339]
+    object_number = 0
     for i in range(2, len(model_point_output), 3):
-        x_norm = model_point_output[i]
-        y_norm = model_point_output[i + 1]
+        object_number = object_number + 1
+        x_norm        = model_point_output[i]
+        y_norm        = model_point_output[i + 1]
 
         # Scale coordinates
         pixel_x = (x_norm / 1000) * w
@@ -417,6 +421,7 @@ def draw_with_molmo_bb(full_image_path, model_point_output):
         # 3. Draw the rectangle
         # PIL expects [xmin, ymin, xmax, ymax]
         draw.rectangle([left, top, right, bottom], outline="red", width=1)
+        draw.text((left + 50, top), f"{object_number}", fill="red", font=font)
 
 
     img.show()
@@ -509,7 +514,7 @@ def test_molmo(full_image_path):
         visual_evidence =  curr_result['visual_evidence']
         print(f"[{i_res+1}] [{prediction}] [{visual_evidence}]")
 
-    #draw_with_molmo_bb(full_image_path, model_point_output)
+    draw_with_molmo_bb(full_image_path, model_point_output)
 
 
 
