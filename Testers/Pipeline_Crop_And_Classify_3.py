@@ -392,7 +392,7 @@ def create_molmo_crop_files(full_image_path, model_point_output, radius):
         crop_index = crop_index + 1
 
 
-def draw_with_molmo_bb(full_image_path, model_point_output, l_labels=Non):
+def draw_with_molmo_bb(full_image_path, model_point_output, l_labels=None):
     img  = Image.open(full_image_path).convert("RGB")
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype(FONT_FILE, size=32)
