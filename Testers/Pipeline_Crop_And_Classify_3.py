@@ -127,9 +127,9 @@ def classify_molmo_objects(client, objects_path, num_of_objects):
     }
 
     response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        temperature=0.0,
+        model       = MODEL,
+        messages    = messages,
+        temperature = 0.0,
         top_p=1,
         seed=42,
         extra_body={
@@ -262,28 +262,28 @@ def get_classification_prompt(objects_path, num_of_objects):
     add_text_line(content, "1. More than one missile")
     add_text_line(content, "2. There is no missile")
 
-    add_text_line(content, "Examples:")
-
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_1.JPG')
-    add_text_line(content, f"{sa22_txt_1} Answer: {SA_22}")
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_2.JPG')
-    add_text_line(content, f"{sa22_txt_2} Answer: {SA_22}")
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_3.JPG')
-    add_text_line(content, f"{sa22_txt_3} Answer: {SA_22}")
-
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_1.JPG')
-    add_text_line(content, f"{scud_txt_1} Answer: {SCUD}")
-    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_2.JPG')
-    # add_text_line(content, f"{scud_txt_2} Answer: {SCUD}")
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_3.JPG')
-    add_text_line(content, f"{scud_txt_3} Answer: {SCUD}")
-
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_1.JPG')
-    add_text_line(content, f"{t90_txt_1} Answer: {T_90}")
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_2.JPG')
-    add_text_line(content, f"{t90_txt_2} Answer: {T_90}")
-    add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_3.JPG')
-    add_text_line(content, f"{t90_txt_3} Answer: {T_90}")
+    # add_text_line(content, "Examples:")
+    #
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_1.JPG')
+    # add_text_line(content, f"{sa22_txt_1} Answer: {SA_22}")
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_2.JPG')
+    # add_text_line(content, f"{sa22_txt_2} Answer: {SA_22}")
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SA-22_3.JPG')
+    # add_text_line(content, f"{sa22_txt_3} Answer: {SA_22}")
+    #
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_1.JPG')
+    # add_text_line(content, f"{scud_txt_1} Answer: {SCUD}")
+    # # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_2.JPG')
+    # # add_text_line(content, f"{scud_txt_2} Answer: {SCUD}")
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/SCUD_3.JPG')
+    # add_text_line(content, f"{scud_txt_3} Answer: {SCUD}")
+    #
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_1.JPG')
+    # add_text_line(content, f"{t90_txt_1} Answer: {T_90}")
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_2.JPG')
+    # add_text_line(content, f"{t90_txt_2} Answer: {T_90}")
+    # add_image_line(content, f'{FEW_SHOTS_FOLDER}/T-90_3.JPG')
+    # add_text_line(content, f"{t90_txt_3} Answer: {T_90}")
 
     # --- no guess
     # add_text_line(content, 'If an image is too blurry to identify, label it as "Uncertain"')
@@ -392,7 +392,7 @@ def create_molmo_crop_files(full_image_path, model_point_output, radius):
         crop_index = crop_index + 1
 
 
-def draw_with_molmo_bb(full_image_path, model_point_output):
+def draw_with_molmo_bb(full_image_path, model_point_output, l_labels=Non):
     img  = Image.open(full_image_path).convert("RGB")
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype(FONT_FILE, size=32)
@@ -421,7 +421,10 @@ def draw_with_molmo_bb(full_image_path, model_point_output):
         # 3. Draw the rectangle
         # PIL expects [xmin, ymin, xmax, ymax]
         draw.rectangle([left, top, right, bottom], outline="red", width=1)
-        draw.text((left + 50, top), f"{object_number}", fill="red", font=font)
+        if l_labels is None:
+            draw.text((left + 50, top), f"{object_number}", fill="red", font=font)
+        else:
+            draw.text((left + 50, top), l_labels[object_number-1], fill="red", font=font)
 
 
     img.show()
@@ -499,6 +502,7 @@ def test_molmo_on_train():
 def test_molmo(full_image_path):
     client             = OpenAI(api_key="EMPTY", base_url=BASE_URL)
 
+    start_time         = time.time()
     model_point_output = get_list_of_points(client, full_image_path)
     create_molmo_crop_files(full_image_path, model_point_output, radius=100)
 
@@ -506,15 +510,19 @@ def test_molmo(full_image_path):
     classifcation_result = classify_molmo_objects(client, TMP_FILES_FOLDER, num_of_objects)
     classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
     classifcation_result = json.loads(classifcation_result)
+    end_time             = time.time()
+    print(f'Total classfication time: {(end_time - start_time):.2f} seconds')
 
+    l_pred_text = []
     for i_res in range(num_of_objects):
         curr_result     = classifcation_result['images'][i_res]
         prediction      = curr_result['classification']
         prediction      = update_prediction(prediction)
         visual_evidence =  curr_result['visual_evidence']
         print(f"[{i_res+1}] [{prediction}] [{visual_evidence}]")
+        l_pred_text.append(f"{i_res+1} {prediction}")
 
-    draw_with_molmo_bb(full_image_path, model_point_output)
+    draw_with_molmo_bb(full_image_path, model_point_output, l_pred_text)
 
 
 
