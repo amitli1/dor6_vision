@@ -24,42 +24,6 @@ BASE_URL = "http://localhost:9100/v1"
 #BASE_URL = "http://localhost:9000/v1"
 
 
-def draw_box(image_path, l_cords, output_jpg_file=None, l_prediction=None, show_img=False):
-    # Load the image
-    img = Image.open(image_path)
-    draw = ImageDraw.Draw(img)
-    width, height = img.size
-    font = ImageFont.truetype(FONT_FILE, size=32)
-
-    # pred_str = ""
-    # for i in range(len(l_prediction)):
-    #     pred_str += l_prediction[i] + "\n"
-    # draw.text((1, 1), pred_str, fill="red", font=font)
-
-    if type(l_cords) == str:
-        l_cords = ast.literal_eval(l_cords)
-
-    for i, coords in enumerate(l_cords):
-        ymin, xmin, ymax, xmax = coords
-
-        # 2. Convert from normalized (0-1000) to actual pixel values
-        left = xmin * width / 1000
-        top = ymin * height / 1000
-        right = xmax * width / 1000
-        bottom = ymax * height / 1000
-
-        # 3. Draw the rectangle
-        # PIL expects [xmin, ymin, xmax, ymax]
-        draw.rectangle([left, top, right, bottom], outline="red", width=1)
-        if l_prediction is not None:
-            draw.text((left + 50, top), l_prediction[i].replace('none', 'Other'), fill="red", font=font)
-        # draw.text((left+50, top), f"{i+1}", fill="red", font=font)
-
-    if output_jpg_file:
-        img.save(output_jpg_file)
-    if show_img:
-        img.show()
-
 
 def get_all_points(target_img):
     messages = [
@@ -133,47 +97,6 @@ def get_list_of_points(client, full_image_path):
 
     return res_text
 
-
-def create_crop_files(image_path, model_bb_json_res, min_crop_size):
-    image = Image.open(image_path).convert("RGB")
-    width, height = image.size
-    # draw          = ImageDraw.Draw(image)
-    l_crop_ratio = []
-
-    for i, bb in enumerate(model_bb_json_res):
-        ymin, xmin, ymax, xmax = bb['box_2d']
-        left = (xmin / 1000) * width
-        top = (ymin / 1000) * height
-        right = (xmax / 1000) * width
-        bottom = (ymax / 1000) * height
-
-        # draw.rectangle([left, top, right, bottom], outline="red", width=3)
-        # crop_image = image.crop((left, top, right, bottom))
-        # crop_image.show()
-
-        crop_width = int(right - left)
-        crop_height = int(bottom - top)
-        crop_size = (crop_width * crop_height) / (width * height)
-        l_crop_ratio.append(crop_size)
-
-        if crop_width < min_crop_size:
-            delta = (min_crop_size - crop_width) / 2
-            left -= delta
-            right += delta
-
-        if crop_height < min_crop_size:
-            delta = (min_crop_size - crop_height) / 2
-            top -= delta
-            bottom += delta
-
-        crop_image = image.crop((left, top, right, bottom))
-        # crop_image.show()
-
-        # print(f"[{os.path.basename(image_path)}] Image size: {image.size}, Crop #{i+1} size = ({crop_width},{crop_height}) [{crop_size:.3f}%]")
-        crop_image.save(f"{TMP_FILES_FOLDER}/crop_{i + 1}.jpg", "JPEG")
-
-    # image.show()
-    return l_crop_ratio
 
 
 def classify_molmo_objects(client, objects_path, num_of_objects):
@@ -392,23 +315,6 @@ def get_classification_prompt(objects_path, num_of_objects):
     return messages
 
 
-def simulate_vlm_view(image_path, target_res=(224, 224), patch_size=16):
-    img = Image.open(image_path)
-
-    # 1. Upsample to the model's expected internal resolution
-    # Gemma 4 usually uses bilinear or bicubic interpolation
-    img_resized = img.resize(target_res, Image.Resampling.BICUBIC)
-
-    # 2. Visualize the Patch Grid
-    # The model "sees" the image as a sequence of these squares
-    arr = np.array(img_resized)
-    for i in range(0, target_res[0], patch_size):
-        arr[i:i + 1, :, :] = [255, 0, 0]  # Red horizontal grid lines
-    for j in range(0, target_res[1], patch_size):
-        arr[:, j:j + 1, :] = [255, 0, 0]  # Red vertical grid lines
-
-    return Image.fromarray(arr)
-
 
 def update_prediction(prediction):
     if prediction.lower().find('class') == -1:
@@ -421,127 +327,6 @@ def update_prediction(prediction):
         if prediction.lower() == 'class_3':
             return "T-90"
         return prediction
-
-
-def test_on_train():
-
-    client = OpenAI(api_key="EMPTY", base_url=BASE_URL)
-
-    #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_500.csv')
-    df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/shiry_testset_balanced.csv')
-    #df = pd.read_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_300.csv')
-    df = df.rename(columns={'filename': 'jpg_file', 'label_name': 'gt'})
-    df = df[df['gt'] != 'Other']
-    #df = df.groupby('gt', group_keys=False).sample(frac=0.2, random_state=42)
-    #df.to_csv('/home/amitli/repo/dor6_vision/Dataset/labels_balanced_test_200.csv', index=False)
-
-    l_jpg_file = []
-    l_gt = []
-    l_prediction = []
-    l_description = []
-    l_time = []
-    l_class_time = []
-    l_crop_ratio = []
-    l_crop_values = []
-
-    for i in tqdm(range(len(df))):
-        jpg_file = df['jpg_file'].values[i]
-        gt = df['gt'].values[i]
-        start_time = time.time()
-
-        try:
-            full_image_path = f"{TRAIN_FULL_MODE_FILES_PATH}{jpg_file}"
-            model_json_res = get_list_of_points(client, full_image_path)
-            with open(BB_TMP_FILE, "w") as f:
-                json.dump(model_json_res, f, indent=4)
-            crop_ratio           = create_crop_files(full_image_path, model_json_res, 128)
-            start_cls_time       = time.time()
-            classifcation_result = classify_objects(client, TMP_FILES_FOLDER, len(model_json_res))
-            end_cls_time         = time.time()
-
-            classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
-            classifcation_result = json.loads(classifcation_result)
-            prediction          = classifcation_result['images'][0]['classification']
-
-            prediction   = update_prediction(prediction)
-            description  = classifcation_result['images'][0]['visual_evidence']
-        except Exception as e:
-            print(f"Error in {jpg_file}")
-            prediction = "Error"
-            description = "Error"
-            crop_ratio = "Error"
-            model_json_res = "Error"
-            start_cls_time = 0
-            end_cls_time = 0
-
-        end_time = time.time()
-        l_jpg_file.append(jpg_file)
-        l_gt.append(gt)
-        l_prediction.append(prediction)
-        l_description.append(description)
-        l_time.append(end_time - start_time)
-        l_crop_ratio.append(crop_ratio)
-        l_crop_values.append(model_json_res)
-        l_class_time.append(end_cls_time - start_cls_time)
-
-    df_tmp = pd.DataFrame({"jpg_file": l_jpg_file,
-                           'gt': l_gt,
-                           'prediction': l_prediction,
-                           'description': l_description,
-                           "total_diff_time": l_time,
-                           'crop_ratio': l_crop_ratio,
-                           'crop_values': l_crop_values,
-                           "class_time": l_class_time})
-
-    df_tmp.to_csv('150_molmo.csv', index=False)
-    print_cm(df_tmp)
-
-
-def run_pipeline(client, full_image_path):
-    GET_LIST_OF_BB    = True
-    CREATE_CROP_FILES = True
-    CLASSIFY          = True
-
-    if GET_LIST_OF_BB:
-        start_time = time.time()
-        model_json_res = get_list_of_points(client, full_image_path)
-        end_time = time.time()
-        with open(BB_TMP_FILE, "w") as f:
-            json.dump(model_json_res, f, indent=4)
-        print(f"[{(end_time - start_time):.2f} sec] Get list of BB")
-    if CREATE_CROP_FILES:
-        with open(BB_TMP_FILE, "r") as f:
-            model_json_res = json.load(f)
-        start_time = time.time()
-        create_crop_files(full_image_path, model_json_res, 128)
-        end_time = time.time()
-        print(f"[{(end_time - start_time):.2f} sec] Create crop files")
-    if CLASSIFY:
-        with open(BB_TMP_FILE, "r") as f:
-            model_json_res = json.load(f)
-        start_time = time.time()
-        classifcation_result   = classify_objects(client, TMP_FILES_FOLDER, len(model_json_res))
-        classifcation_result   = classifcation_result.replace("```json", "").replace("```", "").strip()
-        l_classifcation_result = json.loads(classifcation_result)
-
-        end_time = time.time()
-
-        l_prediction = []
-        l_bb = []
-        for i in range(len(model_json_res)):
-
-            classification  = l_classifcation_result['images'][i]['classification']
-            classification = update_prediction(classification)
-            description    = l_classifcation_result['images'][i]['visual_evidence']
-
-
-            l_prediction.append(f"[{i + 1}] {classification}")
-            l_bb.append(model_json_res[i]['box_2d'])
-            print(f'\t[{i + 1}] [{classification}] {description}')
-
-        print(f"[{(end_time - start_time):.2f} sec] Object classification")
-
-    return l_prediction, l_bb
 
 
 def plot_time_avg(df):
@@ -707,82 +492,36 @@ def test_molmo_on_train():
     print_cm(df_tmp)
 
 def test_molmo(full_image_path):
-    client       = OpenAI(api_key="EMPTY", base_url=BASE_URL)
-    model_output = get_list_of_points(client, full_image_path)
-    create_molmo_crop_files(full_image_path, model_output, radius=100)
-    #draw_with_molmo_bb(full_image_path, model_output)
-    num_of_objects = int((len(model_output)-1)/3) # -1 - start from 1, /3 each object has 3 values
+    client             = OpenAI(api_key="EMPTY", base_url=BASE_URL)
+
+    model_point_output = get_list_of_points(client, full_image_path)
+    create_molmo_crop_files(full_image_path, model_point_output, radius=100)
+
+    num_of_objects       = int((len(model_point_output)-1)/3) # -1 - start from 1, /3 each object has 3 values
     classifcation_result = classify_molmo_objects(client, TMP_FILES_FOLDER, num_of_objects)
     classifcation_result = classifcation_result.replace("```json", "").replace("```", "").strip()
     classifcation_result = json.loads(classifcation_result)
-    for curr_result in classifcation_result['images']:
-        prediction = classifcation_result['images']['classification']
-        prediction     = update_prediction(prediction)
-        visual_evidence =  classifcation_result['images']['visual_evidence']
-        print(prediction)
+
+    for i_res in range(num_of_objects):
+        curr_result     = classifcation_result['images'][i_res]
+        prediction      = curr_result['classification']
+        prediction      = update_prediction(prediction)
+        visual_evidence =  curr_result['visual_evidence']
+        print(f"[{i_res+1}] [{prediction}] [{visual_evidence}]")
+
+    #draw_with_molmo_bb(full_image_path, model_point_output)
 
 
 
 if __name__ == "__main__":
-    full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_444_00_11_806.jpg'
-    #test_molmo(full_image_path)
-    test_molmo_on_train()
-    exit(0)
 
-    DRAW_UPSAMPLE = False
-    RUN_TRAIN_PIPELINE = False
-    RUN_SINGLE_TEST = True
-    RUN_IN_TEST_LOOP = False
+    TEST_MOLMO = True
+    RUN_TRAIN = False
 
-    if RUN_TRAIN_PIPELINE:
-        test_on_train()
-        exit(0)
+    if TEST_MOLMO:
+        full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_5/frame_444_00_11_806.jpg'
+        test_molmo(full_image_path)
 
-    client = OpenAI(api_key="EMPTY", base_url=BASE_URL)
-    # client = OpenAI(
-    #     api_key="gpustack_a853c8a4cf87ee4b_6d6d0ade6d71fbadf5b015e04fb5e825",
-    #     base_url="http://10.53.160.148/v1"
-    # )
+    if RUN_TRAIN:
+        test_molmo_on_train()
 
-    if DRAW_UPSAMPLE:
-        sim_img = simulate_vlm_view('/Testers/tmp_files/rec3_frame_273_00_06_418/crop_6.jpg')
-        sim_img.show()
-
-    if RUN_SINGLE_TEST:
-        full_image_path = '/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/VBS_Record_2/frame_430_00_09_999.jpg'
-        l_prediction, l_bb = run_pipeline(client, full_image_path)
-        draw_box(full_image_path, l_bb, output_jpg_file=None, l_prediction=l_prediction, show_img=True)
-
-    if RUN_IN_TEST_LOOP:
-        OUTPUT_FOLDER = f'/home/amitli/repo/dor6_vision/Testers/tmp_results/'
-        l_folders     = glob.glob('/home/amitli/repo/dor6_vision/Dataset/test_set_v2/jpgs/*')
-        l_folders.sort()
-        l_time_diff       = []
-        l_num_objs_in_img = []
-        l_all_files       = []
-        for folder in l_folders:
-
-            base_folder_name = os.path.basename(folder)
-            Path(f'{OUTPUT_FOLDER}{base_folder_name}').mkdir(parents=True, exist_ok=True)
-
-            l_files = glob.glob(folder + '/*.jpg')
-            for full_image_path in l_files:
-                print(f"\t --- Process: {folder} {os.path.basename(full_image_path)} ---")
-                start_time = time.time()
-                l_prediction, l_bb = run_pipeline(client, full_image_path)
-                end_time = time.time()
-
-                l_time_diff.append(end_time - start_time)
-                l_num_objs_in_img.append(len(l_bb))
-                l_all_files.append(full_image_path)
-
-                if len(l_bb) > 0:
-                    # print(f"{os.path.basename(full_image_path)}")
-                    output_jpg = f'{OUTPUT_FOLDER}{base_folder_name}/{os.path.basename(full_image_path)}'
-                    draw_box(full_image_path, l_bb, output_jpg_file=output_jpg, l_prediction=l_prediction,
-                             show_img=False)
-
-        df_statisics = pd.DataFrame(
-            {"jpg_file": l_all_files, "time_diff": l_time_diff, "num_objs_in_img": l_num_objs_in_img})
-        df_statisics.to_csv(f'{OUTPUT_FOLDER}statistics.csv', index=False)
-        plot_time_avg(df_statisics)
