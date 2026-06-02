@@ -9,8 +9,7 @@ from app_config.settings import FONT_FILE
 
 
 class ModelResult:
-    def __init__(self, df):
-        self.df                  = df
+    def __init__(self):
         self.l_jpg_file          = []
         self.l_gt_count          = []
         self.l_gt_bb             = []
@@ -100,37 +99,50 @@ def draw_result(df, full_path):
         right = xmax * img_w / 1000
         bottom = ymax * img_h / 1000
 
-        draw.rectangle([left, top, right, bottom], outline="blue", width=1)
-        draw.text((left + 100, top), l_model_family[i].replace('none', 'Other'), fill="blue", font=font)
+        draw.rectangle([left, top, right, bottom], outline="red", width=1)
+        draw.text((left + 100, top), l_model_family[i].replace('none', 'Other'), fill="red", font=font)
 
     img.show()
 
 
 if __name__ == "__main__":
 
-    validation_dataset_path = '/home/amitli/datasets/DOR_6/Train_B/validation'
 
-    df = pd.read_pickle('validation_results.pkl')
-    for i in range(len(df)):
-        df_current = df[df.jpg_file == df.jpg_file[i]]
-        draw_result(df_current, f'{validation_dataset_path}/Images')
+    RUN_MODEL = False
+    DB_TYPE   = "Train"
 
-    exit(0)
+    if DB_TYPE == "Train":
+        jpg_files_path  = '/home/amitli/datasets/DOR_6/Train_B/Database'
+        pkl_result_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles//train_results.pkl'
+        pkl_db_file     = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_db.pkl'
+    else:
+        jpg_files_path = '/home/amitli/datasets/DOR_6/Train_B/validation'
+        pkl_result_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_results.pkl'
+        pkl_db_file     = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl'
+
+    if RUN_MODEL is False:
+        df = pd.read_pickle(pkl_result_file)
+        for i in range(len(df)):
+            df_current = df[df.jpg_file == df.jpg_file[i]]
+            draw_result(df_current, f'{jpg_files_path}/Images')
+        exit(0)
 
 
-    df                      = pd.read_pickle('validation_b.pkl')
-    modelResult             = ModelResult(df)
+    df                      = pd.read_pickle(pkl_db_file)
+    df                      = df[df['num_gt'] > 0]
+    df                      = df.sample(n=20)
+    modelResult             = ModelResult()
 
     vlmModel = VlmModel()
     for i in tqdm(range(len(df))):
         jpg_file       = df.jpg_file.values[i]
 
-        if jpg_file != '1_564400_8_14-50-09.jpg':
-            continue
+        # if jpg_file != '1_564400_8_14-50-09.jpg':
+        #     continue
 
         l_gt_targets   = df.targets.values[i]
         l_gt_bb        = df.bb.values[i]
-        full_jpg_file  = f'{validation_dataset_path}/Images/{jpg_file}'
+        full_jpg_file  = f'{jpg_files_path}/Images/{jpg_file}'
         l_model_bb_res = vlmModel.get_list_of_bounding_boxes(full_jpg_file)
         l_crop_ratio   = vlmModel.create_crop_files(full_jpg_file, l_model_bb_res, min_crop_size=128)
         family_result  = vlmModel.classify_family_objects(len(l_model_bb_res))
@@ -157,7 +169,7 @@ if __name__ == "__main__":
         if i == 20:
             break
 
-    modelResult.save_to_pickle('validation_results.pkl')
+    modelResult.save_to_pickle(pkl_result_file)
 
 
 

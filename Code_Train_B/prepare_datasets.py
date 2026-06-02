@@ -1,16 +1,12 @@
-from openai import OpenAI
 import glob
 import pandas as pd
 import os
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
-import base64
 import ast
-
-from Code_Train_B.eda_draw_targets import EdaDrawTargets
 from app_config.settings import FONT_FILE
-import json
+
+
 
 
 def draw_image_with_gt(image_path, l_targets, l_bb):
@@ -170,7 +166,7 @@ def draw_histogram(df):
     plt.tight_layout()
     plt.show()
 
-def prepare_data(dataset_path, pkl_name):
+def prepare_data(dataset_path, pkl_path):
 
     dataset_path = f'{dataset_path}/Labels'
     l_txt_files  = glob.glob(f'{dataset_path}/*.txt')
@@ -204,7 +200,7 @@ def prepare_data(dataset_path, pkl_name):
         l_num_gt      .append(len(l_file_bb))
 
     df = pd.DataFrame({'jpg_file': l_jpg_file, 'targets': l_targets, "family": l_family, 'bb': l_bb, 'num_gt': l_num_gt})
-    df.to_pickle(f'/home/amitli/repo/dor6_vision/Code_Train_B/{pkl_name}')
+    df.to_pickle(pkl_path)
 
 
 def get_jpg_per_classes(df):
@@ -247,19 +243,14 @@ def get_jpg_per_classes(df):
 
 if __name__ == "__main__":
 
-    client = OpenAI(
-        api_key="gpustack_a853c8a4cf87ee4b_6d6d0ade6d71fbadf5b015e04fb5e825",
-        base_url="http://10.53.160.148/v1"
-    )
 
     train_dataset_path      = '/home/amitli/datasets/DOR_6/Train_B/Database'
     validation_dataset_path = '/home/amitli/datasets/DOR_6/Train_B/validation'
 
 
-    #prepare_data(train_dataset_path, 'train_b.pkl')
-    #prepare_data(validation_dataset_path, 'validation_b.pkl')
+    prepare_data(train_dataset_path,      '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_db.pkl')
+    prepare_data(validation_dataset_path, '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl')
 
-    df = pd.read_pickle('validation_b.pkl')
+    df = pd.read_pickle('/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl')
     draw_histogram(df)
 
-    exit(0)
