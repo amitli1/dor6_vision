@@ -4,9 +4,35 @@ import matplotlib.pyplot as plt
 
 
 class EdaDrawTargets:
-    def __init__(self, margin, dataset_path):
+    def __init__(self, margin, dataset_path, df_eda):
         self.MARGIN       = margin
         self.dataset_path = dataset_path
+        self.df_eda       = self._prepare_df(df_eda)
+
+    def _prepare_df(self, df_eda):
+        l_jpg    = []
+        l_bb     = []
+        l_target = []
+        l_family = []
+
+        for i in range(len(df_eda)):
+            jpg_file = df_eda["jpg_file"].values[i]
+            num_of_gt = df_eda["num_gt"].values[i]
+            for jj in range(num_of_gt):
+                bb       = df_eda["bb"].values[i][jj]
+                target   = df_eda["targets"].values[i][jj]
+                family   = df_eda["family"].values[i][jj]
+
+                l_jpg.append(jpg_file)
+                l_bb.append(bb)
+                l_target.append(target)
+                l_family.append(family)
+
+        df = pd.DataFrame({"jpg_file": l_jpg,
+                           "bb"      : l_bb,
+                           "targets" : l_target,
+                           "family"  : l_family})
+        return df
 
     def _yolo_to_xyxy(self, bb, img_w, img_h):
         """
@@ -85,6 +111,8 @@ class EdaDrawTargets:
                 label = row["targets"]
             elif label_column == 'jpg_file':
                 label = row["jpg_file"]
+            elif label_column == "family":
+                label = f"{row['targets']} ({row['jpg_file']})"
             else:
                 label = f"{row['targets']}_{row['jpg_file']}"
 
@@ -112,12 +140,12 @@ class EdaDrawTargets:
         else:
             plt.savefig(save_path)
 
-    def draw_eda_family(self, df_eda, family_name, save_path):
-        df_eda = df_eda[df_eda["family"] == family_name]
+    def draw_eda_family(self, family_name, save_path):
+        df_eda                = self.df_eda[self.df_eda["family"] == family_name]
         num_different_targets = len(set(df_eda["targets"]))
-        NUM_OF_SAMPLES = 4
+        NUM_OF_SAMPLES        = 4
         df_eda = self._get_targets_sub_sample(df_eda, num_of_samples=NUM_OF_SAMPLES)
-        self.draw_eda(num_different_targets, NUM_OF_SAMPLES, df_eda, None, save_path)
+        self.draw_eda(num_different_targets, NUM_OF_SAMPLES, df_eda, "family", save_path)
 
     def draw_eda_target(self, df_eda, target_name, save_path):
         df_eda = df_eda[df_eda["targets"] == target_name]
@@ -128,3 +156,19 @@ class EdaDrawTargets:
 
         df_eda = self._get_targets_sub_sample(df_eda, num_of_samples=1)
         self.draw_eda(3, 3, df_eda, label_column="targets", save_path=save_path)
+
+
+
+if __name__ == "__main__":
+
+    df_eda         = pd.read_pickle("Pickles/train_db.pkl")
+    edaDrawTargets = EdaDrawTargets(margin=150,
+                                    dataset_path="/home/amitli/datasets/DOR_6/Train_B/Database/Images",
+                                    df_eda=df_eda)
+
+    family_name = "Anti aircraft"
+    #family_name = "Launchers"
+    # family_name = "Tank"
+
+
+    edaDrawTargets.draw_eda_family(family_name, save_path=None)
