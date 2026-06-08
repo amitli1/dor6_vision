@@ -30,8 +30,8 @@ class VlmModel():
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{self._encode_image(image_path)}"}})
 
     def _get_all_bb(self, target_img):
-        base_prompt = ("Return all the bounding boxes of the military vehicles in this simulation image "
-                       "and classify it as 'Launchers' or 'Anti aircraft' or 'Tank' or 'Other'")
+        base_prompt = ("Return all the bounding boxes of the military vehicles in this military simulation image "
+                       "and classify it as 'Launchers vehicle' or 'Anti aircraft vehicle' or 'Tank' or 'Other'")
 
         content = []
         self._add_text_line(content, base_prompt)
@@ -58,7 +58,7 @@ class VlmModel():
                         "properties": {
                             "classification": {
                                 "type": "string",
-                                "enum": ["Launchers", "Anti aircraft", "Tank", "Other"]
+                                "enum": ["Launchers vehicle", "Anti aircraft vehicle", "Tank", "Other"]
                             },
                             "bounding_box": {
                                 "type": "array",
@@ -242,3 +242,11 @@ class VlmModel():
 
 
 
+if __name__ == "__main__":
+
+    #jpg_full_file = '/home/amitli/datasets/DOR_6/Train_B/validation/Images/1_564400_419_14-50-09.jpg'
+    #jpg_full_file = '/home/amitli/datasets/DOR_6/Train_B/validation/Images/1_564400_137_14-50-09.jpg'
+    jpg_full_file = '/home/amitli/datasets/DOR_6/Train_B/validation/Images/1_524400_420_14-51-38.jpg'
+    vlm_model     = VlmModel()
+    result        = vlm_model.get_list_of_bounding_boxes(jpg_full_file)
+    print(result)

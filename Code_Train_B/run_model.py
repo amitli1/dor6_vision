@@ -190,8 +190,11 @@ def print_statisics(df):
 
 if __name__ == "__main__":
 
+# 1_564400_419_14-50-09.jpg
+# 1_564400_137_14-50-09.jpg
+#  1_524400_420_14-51-3.jpg
 
-    RUN_MODEL   = True
+    RUN_MODEL   = False
     DB_TYPE     = "Validation" # "Train" / "Validation"
 
     if DB_TYPE == "Train":
@@ -199,6 +202,10 @@ if __name__ == "__main__":
         pkl_result_file   = f'/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_results.pkl'
         pkl_input_db_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_db.pkl'
     else:
+
+        l_test_list = ['1_564400_419_14-50-09.jpg', '1_564400_137_14-50-09.jpg', '1_524400_420_14-51-3.jpg']
+
+
         jpg_files_path    = '/home/amitli/datasets/DOR_6/Train_B/validation'
         pkl_result_file   = f'/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_results.pkl'
         pkl_input_db_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl'
