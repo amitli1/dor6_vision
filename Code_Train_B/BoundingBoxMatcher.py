@@ -65,6 +65,10 @@ class BoundingBoxMatcher:
         """
         Matches each bounding box from l_model_bb to its best corresponding box in l_gt_bb.
         """
+        if len(l_gt_bb) > 0:
+            if type(l_gt_bb[0][0]) == str:
+                l_gt_bb = [[float(x) for x in row] for row in l_gt_bb]
+
         model_boxes_std = [self._model_to_pascal_voc(box) for box in l_model_bb]
         gt_boxes_std = [self._gt_to_pascal_voc(box) for box in l_gt_bb]
 

@@ -3,19 +3,18 @@ from openai import OpenAI
 
 import base64
 import json
-
-self.MODEL = "gemma-4-31b-it"
-self.BASE_URL = "http://localhost:9000/v1"
-self.client = OpenAI(
-    api_key="gpustack_a853c8a4cf87ee4b_6d6d0ade6d71fbadf5b015e04fb5e825",
-    base_url="http://10.53.160.148/v1"
-)
 import os
+
 
 class VlmModel():
 
     def __init__(self):
-
+        self.MODEL    = "gemma-4-31b-it"
+        self.BASE_URL = "http://localhost:9000/v1"
+        self.client   = OpenAI(
+            api_key  = "gpustack_a853c8a4cf87ee4b_6d6d0ade6d71fbadf5b015e04fb5e825",
+            base_url = "http://10.53.160.148/v1"
+        )
         self.TMP_FILES_FOLDER = '/home/amitli/repo/dor6_vision/Code_Train_B/TMP_FOLDER/'
 
 
@@ -143,8 +142,8 @@ class VlmModel():
         # ANTI_AIRCRAFT = "Class_2"
         # TANK = "Class_3"
 
-        LAUNCHERS     = "Launchers"
-        ANTI_AIRCRAFT = "Anti aircraft"
+        LAUNCHERS     = "Launchers vehicle"
+        ANTI_AIRCRAFT = "Anti aircraft vehicle"
         TANK          = "Tank"
 
         content = []
@@ -240,3 +239,6 @@ class VlmModel():
         )
         res_text = response.choices[0].message.content
         return res_text
+
+
+

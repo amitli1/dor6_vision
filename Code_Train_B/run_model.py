@@ -1,8 +1,11 @@
 from tqdm                             import tqdm
+
+from Code_Train_B.BoundingBoxMatcher import BoundingBoxMatcher
+from Code_Train_B.siglip2_model import Siglip2Model
 from Code_Train_B.vlm_model           import VlmModel
 from PIL                              import Image, ImageDraw, ImageFont
 import pandas as pd
-
+import ast
 import json
 
 from app_config.settings import FONT_FILE
@@ -40,6 +43,65 @@ class ModelResult:
                            'model_family'      : self.l_model_family,
                            'model_description' : self.l_model_description})
         df.to_pickle(pkl_name)
+
+
+def calc_statistics(boundingBoxMatcher, df):
+
+    jpg_file       = df['jpg_file'].values[0]
+    gt_count       = df['gt_count'].values[0]
+    l_gt_bb        = df['gt_bb'].values[0]
+    l_gt_family    = df['gt_family'].values[0]
+    l_model_family = df['model_family'].values[0]
+    l_model_bb     = df['model_bb'].values[0]
+
+    matching_results   = boundingBoxMatcher.match(l_model_bb, l_gt_bb)
+
+    bb_count = 0
+    gt_tank_count = 0
+    gt_anti_aircraft_count = 0
+    gt_Launchers_count = 0
+    model_tank_count= 0
+    model_anti_aircraft_count = 0
+    model_Launchers_count = 0
+
+    for matcing in matching_results:
+        score          = matcing["score"]
+        match_gt_index = matcing["matched_gt_index"]
+        model_index    = matcing["model_index"]
+
+        if match_gt_index != -1:
+            bb_count     = bb_count + 1
+            gt_family    = l_gt_family[match_gt_index]
+            model_family = l_model_family[model_index].replace('vehicle', '').strip()
+
+            if gt_family == "Tank":
+                gt_tank_count = gt_tank_count + 1
+            elif gt_family == "Launchers":
+                gt_Launchers_count = gt_Launchers_count + 1
+            elif gt_family == "Anti aircraft":
+                gt_anti_aircraft_count = gt_anti_aircraft_count + 1
+            if gt_family == model_family:
+                if model_family == "Tank":
+                    model_tank_count = model_tank_count + 1
+                elif model_family == "Launchers":
+                    model_Launchers_count = model_Launchers_count + 1
+                elif model_family == "Anti aircraft":
+                    model_anti_aircraft_count = model_anti_aircraft_count + 1
+
+    df_results = pd.DataFrame({
+                              "jpg_file"     : [jpg_file],
+                              "bb_count"     : [bb_count],
+                              "gt_count"     : [gt_count],
+                              "bb_score"     : [bb_count/gt_count],
+                              "gt_tank_count"            : [gt_tank_count],
+                              "gt_anti_aircraft_count"   : [gt_anti_aircraft_count],
+                              "gt_Launchers_count"       : [gt_Launchers_count],
+                              "model_tank_count"         : [model_tank_count],
+                              "model_anti_aircraft_count": [model_anti_aircraft_count],
+                              "model_Launchers_count"    : [model_Launchers_count],
+    })
+
+    return df_results
 
 def draw_result(df, full_path):
 
@@ -104,36 +166,68 @@ def draw_result(df, full_path):
 
     img.show()
 
+def print_statisics(df):
+    bb_count = df['bb_count'].sum()
+    gt_count = df['gt_count'].sum()
+    gt_tank_count = df['gt_tank_count'].sum()
+    gt_anti_aircraft_count = df['gt_anti_aircraft_count'].sum()
+    gt_Launchers_count = df['gt_Launchers_count'].sum()
+    model_tank_count = df['model_tank_count'].sum()
+    model_anti_aircraft_count = df['model_anti_aircraft_count'].sum()
+    model_Launchers_count = df['model_Launchers_count'].sum()
+
+    print(f"Total files: {len(df)}")
+    print("")
+    print(f'Bounding Box Count   : {bb_count}')
+    print(f'Bounding Box GT      : {gt_count}')
+    print(f'Bounding Box Accuracy: {(bb_count/gt_count):.2f}')
+
+    print("")
+    print(f"Tank                  : {model_tank_count:2.0f} | {gt_tank_count:2.0f} Accuracy: {(model_tank_count/gt_tank_count):.2f}")
+    print(f"Anti aircraft Accuracy: {model_anti_aircraft_count} | {gt_anti_aircraft_count:2.0f} Accuracy: {(model_anti_aircraft_count / gt_anti_aircraft_count):.2f}")
+    print(f"Anti aircraft Accuracy: {model_Launchers_count} | {gt_Launchers_count:2.0f} Accuracy: {(model_Launchers_count / gt_Launchers_count):.2f}")
+
 
 if __name__ == "__main__":
 
 
-    RUN_MODEL = False
-    DB_TYPE   = "Train"
+    RUN_MODEL   = True
+    DB_TYPE     = "Validation" # "Train" / "Validation"
 
     if DB_TYPE == "Train":
-        jpg_files_path  = '/home/amitli/datasets/DOR_6/Train_B/Database'
-        pkl_result_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles//train_results.pkl'
-        pkl_db_file     = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_db.pkl'
+        jpg_files_path    = '/home/amitli/datasets/DOR_6/Train_B/Database'
+        pkl_result_file   = f'/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_results.pkl'
+        pkl_input_db_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_db.pkl'
     else:
-        jpg_files_path = '/home/amitli/datasets/DOR_6/Train_B/validation'
-        pkl_result_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_results.pkl'
-        pkl_db_file     = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl'
+        jpg_files_path    = '/home/amitli/datasets/DOR_6/Train_B/validation'
+        pkl_result_file   = f'/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_results.pkl'
+        pkl_input_db_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl'
 
+    boundingBoxMatcher   = BoundingBoxMatcher(threshold=0.8, criterion='iog')
+    l_statistics_results = []
     if RUN_MODEL is False:
         df = pd.read_pickle(pkl_result_file)
         for i in range(len(df)):
             df_current = df[df.jpg_file == df.jpg_file[i]]
-            draw_result(df_current, f'{jpg_files_path}/Images')
+            #draw_result(df_current, f'{jpg_files_path}/Images')
+            if df_current.jpg_file.values[0] == '2_924400_1136_09-56-59.jpg':
+                print("")
+            statistics_results = calc_statistics(boundingBoxMatcher, df_current)
+            l_statistics_results.append(statistics_results)
+
+        df_statistics_results = pd.concat(l_statistics_results)
+        print_statisics(df_statistics_results)
         exit(0)
 
 
-    df                      = pd.read_pickle(pkl_db_file)
+
+    df                      = pd.read_pickle(pkl_input_db_file)
     df                      = df[df['num_gt'] > 0]
-    df                      = df.sample(n=20)
+    df                      = df.sample(n=50)
     modelResult             = ModelResult()
 
-    vlmModel = VlmModel()
+    vlmModel     = VlmModel()
+    siglip2Model = Siglip2Model()
     for i in tqdm(range(len(df))):
         jpg_file       = df.jpg_file.values[i]
 
@@ -147,8 +241,12 @@ if __name__ == "__main__":
         l_crop_ratio   = vlmModel.create_crop_files(full_jpg_file, l_model_bb_res, min_crop_size=128)
         family_result  = vlmModel.classify_family_objects(len(l_model_bb_res))
 
-        l_family_result   = family_result.replace("```json", "").replace("```", "").strip()
-        l_family_result = json.loads(l_family_result)
+
+        if type(family_result) == str:
+            l_family_result   = family_result.replace("```json", "").replace("```", "").strip()
+            l_family_result = json.loads(l_family_result)
+        else:
+            l_family_result = family_result
 
         l_model_family_classification = []
         l_model_family_description    = []
@@ -157,6 +255,7 @@ if __name__ == "__main__":
         for jj, family_result in enumerate(l_family_result['images']):
 
             family_classification = family_result['classification']
+            family_classification = family_classification.replace('vehicle', '')
             family_description    = family_result['visual_evidence']
             bb                    = l_model_bb_res[jj]['box_2d']
 
@@ -166,8 +265,6 @@ if __name__ == "__main__":
 
         modelResult.add(jpg_file, l_model_bb, l_model_family_classification, l_model_family_description)
 
-        if i == 20:
-            break
 
     modelResult.save_to_pickle(pkl_result_file)
 
