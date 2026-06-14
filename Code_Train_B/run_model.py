@@ -264,15 +264,94 @@ def get_results(pkl_result_file, bb_threshold):
     df_statistics_results = pd.concat(l_statistics_results)
     print_statisics(df_statistics_results)
     #print_statisics_not_in_gt(df_statistics_results)
+    return df_statistics_results
 
-    exit(0)
+
+def save_crop(image_path, bb, min_crop_size, crop_path):
+
+    image         = Image.open(image_path).convert("RGB")
+    width, height = image.size
+    l_crop_ratio  = []
+
+    ymin, xmin, ymax, xmax = bb
+    left   = (xmin / 1000) * width
+    top    = (ymin / 1000) * height
+    right  = (xmax / 1000) * width
+    bottom = (ymax / 1000) * height
+
+
+    crop_width  = int(right - left)
+    crop_height = int(bottom - top)
+    crop_size   = (crop_width * crop_height) / (width * height)
+    l_crop_ratio.append(crop_size)
+
+    if crop_width < min_crop_size:
+        delta = (min_crop_size - crop_width) / 2
+        left -= delta
+        right += delta
+
+    if crop_height < min_crop_size:
+        delta = (min_crop_size - crop_height) / 2
+        top -= delta
+        bottom += delta
+
+    crop_image = image.crop((left, top, right, bottom))
+    crop_image.save(crop_path, "JPEG")
+
+
+
+def create_crops(df, vlmModel):
+    bb_threshold = 0.4
+    boundingBoxMatcher = BoundingBoxMatcher(threshold=bb_threshold, criterion='iog')
+
+    l_crop_jpg_file = []
+    l_crop_model_family = []
+
+    for i in tqdm(range(len(df))):
+
+        jpg_file       = df.jpg_file.values[i]
+        l_gt_targets   = df.targets.values[i]
+        l_gt_bb        = df.bb.values[i]
+        full_jpg_file  = f'{jpg_files_path}/Images/{jpg_file}'
+        l_model_bb_res = vlmModel.get_list_of_bounding_boxes(full_jpg_file)
+        l_model_bb_res = vlmModel.convert_bb_molmo_to_gemma4(l_model_bb_res, radius=50)
+        l_crop_ratio   = vlmModel.create_crop_files(full_jpg_file, l_model_bb_res, min_crop_size=128)
+
+        l_model = []
+        for jj in range(len(l_model_bb_res)):
+            bb = l_model_bb_res[jj]['box_2d']
+            l_model.append(bb)
+
+        matching_results = boundingBoxMatcher.match(l_model, l_gt_bb)
+
+        crop_num = 0
+        for matcing in matching_results:
+            match_gt_index = matcing["matched_gt_index"]
+            if match_gt_index != -1:
+                crop_num = crop_num + 1
+                model_index = matcing["model_index"]
+                l_crop = l_model[model_index]
+                gt = l_gt_targets[match_gt_index]
+
+                crop_path= "/home/amitli/repo/dor6_vision/Code_Train_B/validation_crops/"
+                crop_file = jpg_file.replace('.jpg', f'_c_{crop_num}.jpg')
+                full_crop = f"{crop_path}/{crop_file}"
+                save_crop(full_jpg_file, l_crop, 128, full_crop)
+
+                l_crop_jpg_file.append(full_crop)
+                l_crop_model_family.append(gt)
+
+    df_crops = pd.DataFrame({'crop_jpg_file': l_crop_jpg_file, 'gt_target': l_crop_model_family})
+    df_crops.to_pickle(r'/home/amitli/repo/dor6_vision/Code_Train_B/validation_crops/crop.pkl')
+
 
 if __name__ == "__main__":
 
     RUN_MODEL    = False
     DB_TYPE      = "Validation" # "Train" / "Validation"
     USE_MOLMO    = False
-    DRAW_RESULTS = False
+    DRAW_RESULTS = True
+    CREATE_CROPS = False
 
     molmo_fname = ""
     if USE_MOLMO:
@@ -284,9 +363,6 @@ if __name__ == "__main__":
         pkl_input_db_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/train_db.pkl'
     else:
 
-        l_test_list = ['1_564400_419_14-50-09.jpg', '1_564400_137_14-50-09.jpg', '1_524400_420_14-51-3.jpg']
-
-
         jpg_files_path    = '/home/amitli/datasets/DOR_6/Train_B/validation'
         pkl_result_file   = f'/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_results{molmo_fname}.pkl'
         pkl_input_db_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl'
@@ -294,22 +370,28 @@ if __name__ == "__main__":
     if DRAW_RESULTS:
         file_name = '1_564400_524_14-50-09.jpg'
         file_name = '1_564400_141_14-50-09.jpg'
+        file_name = '1_444400_462_14-49-59.jpg'
         df        = pd.read_pickle(pkl_result_file)
         df_sample = df[df.jpg_file == file_name]
         draw_result(df_sample, f"{jpg_files_path}/Images")
         exit(0)
 
-    if RUN_MODEL is False:
+    if (RUN_MODEL is False) and (CREATE_CROPS is False):
        get_results(pkl_result_file, bb_threshold=0.4)
 
     # df                      = pd.read_pickle(pkl_input_db_file)
     # df                      = df[df['num_gt'] > 0]
-    # df                      = df.sample(n=50)
-    # df.to_pickle(pkl_input_db_file.replace('.pkl', '_50_samples.pkl'))
-    df                      = pd.read_pickle(pkl_input_db_file.replace('.pkl', '_50_samples.pkl'))
-    modelResult             = ModelResult()
+    # df                      = df.sample(n=100)
+    # df.to_pickle(pkl_input_db_file.replace('.pkl', '_100_samples.pkl'))
 
-    vlmModel     = VlmModel(use_molmo_crop=USE_MOLMO)
+    df                      = pd.read_pickle(pkl_input_db_file.replace('.pkl', '_100_samples.pkl'))
+    modelResult             = ModelResult()
+    vlmModel                = VlmModel(use_molmo_crop=USE_MOLMO)
+
+    if CREATE_CROPS:
+        create_crops(df, vlmModel)
+        exit(0)
+
     for i in tqdm(range(len(df))):
         jpg_file       = df.jpg_file.values[i]
         l_gt_targets   = df.targets.values[i]

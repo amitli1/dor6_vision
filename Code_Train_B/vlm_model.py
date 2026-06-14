@@ -212,38 +212,107 @@ class VlmModel():
 
         return l_crop_ratio
 
-    def _get_family_classification_prompt(self, num_of_objects):
 
+    def _prepare_family_few_shots(self):
+        FEW_SHOTS_FOLDER          = '/home/amitli/repo/dor6_vision/Code_Train_B/Few_Shots/Targets/'
 
-        # LAUNCHERS = "Class_1"
-        # ANTI_AIRCRAFT = "Class_2"
-        # TANK = "Class_3"
+        # --- LAUNCHER
+        LAUNCHER_SCUD_EXAMPE      = rf'{FEW_SHOTS_FOLDER}/Scud/2_884400_119_09-57-12.jpg'
+        LAUNCHER_SCUD_DESCRIPTION = "wheels, Large single missile canister/tube, No radar visible"
+
+        LAUNCHER_ISKANDER_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Iskander/3_1364400_384_09-59-20.jpg'
+        LAUNCHER_ISKANDER_DESCRIPTION = "wheels, Large single missile canister/tube, No radar visible"
+
+        LAUNCGER_SS_21_EXAMPLE = f'{FEW_SHOTS_FOLDER}/3_1324400_366_09-58-46.jpg'  # ??? no missile
+        LAUNCHER_SS_21_DESCRIPTION = "Wheeled configuration with no missiles or radar; upper structure consists of a flat, rectangular roof."
+
+        # --- ANTI_AIRCRAFT
+        ANTI_AIRCRAFT_SA_17_EXAMPLE = f'{FEW_SHOTS_FOLDER}/SA-17/2_884400_441_09-57-12.jpg'
+        ANTI_AIRCRAFT_SA_17_DESCRIPTION = "Multiple parallel missile launch tubes mounted on a tracked chassis. No visible radar"
+
+        ANTI_AIRCRAFT_SA_22_EXAMPLE = f'{FEW_SHOTS_FOLDER}/SA-22/1_524400_500_09-56-15.jpg'
+        ANTI_AIRCRAFT_TIN_SHIELD_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Tin_Shield/3_1364400_274_09-59-20.jpg'
+        ANTI_AIRCRAFT_TIN_SHIELD_DESCRIPTION = "wheels, no missiles/gun/tubes, Large, upright rectangular radar array/scanner."
+
+        ANTI_AIRCRAFT_GRAVE_STONE_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Grave_Stone/3_1244400_166_09-58-27.jpg'
+        ANTI_AIRCRAFT_BIG_BIRD_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Big_Bird/3_1324400_343_09-58-46.jpg'
+
+        # TANK:
+        TANK_T_90_EXAMPLE = f'{FEW_SHOTS_FOLDER}/T-90/3_1284400_190_09-59-02.jpg'
+        TANK_t_90_DESCRIPTION = "Continuous tracks (tracked vehicle), no visible radar, equipped with a large main gun barrel."
 
         LAUNCHERS     = "Launchers vehicle"
         ANTI_AIRCRAFT = "Anti aircraft vehicle"
         TANK          = "Tank"
 
+        dict_family = {f'{LAUNCHERS}':
+                        [{'file': f'{LAUNCHER_SCUD_EXAMPE}', 'Description': f'{LAUNCHER_SCUD_DESCRIPTION}'},
+                         {'file': f'{LAUNCHER_ISKANDER_EXAMPLE}', 'Description': f'{LAUNCHER_ISKANDER_DESCRIPTION}'},
+                         ],
+                       f'{ANTI_AIRCRAFT}':
+                           [{'file': f'{ANTI_AIRCRAFT_SA_17_EXAMPLE}', 'Description': f'{ANTI_AIRCRAFT_SA_17_DESCRIPTION}'},
+                            {'file': f'{ANTI_AIRCRAFT_TIN_SHIELD_EXAMPLE}', 'Description': f'{ANTI_AIRCRAFT_TIN_SHIELD_DESCRIPTION}'},
+                            ],
+                        f'{TANK}':
+                           [{'file': f'{TANK_T_90_EXAMPLE}', 'Description': f'{TANK_t_90_DESCRIPTION}'}]}
+        return dict_family
+
+
+    def _get_family_classification_prompt(self, num_of_objects, use_few_shots):
+
+        LAUNCHERS     = "Launchers vehicle"
+        ANTI_AIRCRAFT = "Anti aircraft vehicle"
+        TANK          = "Tank"
+
+        L_LAUNCHERS_NAMES_EXAMPLES     = ['SCUD', 'Iskander', 'SS21', 'GRAD']
+        L_ANTI_AIRCRAFT_NAMES_EXAMPLES = ['SA-17', 'SA-22',  'Tin Shield', 'Russian 64N6E', '92N6']
+        # Grave STone = 92N6
+        # Big bird - Russian 64N6E
+
+        if use_few_shots:
+            dict_family = self._prepare_family_few_shots()
+
         content = []
-        self._add_text_line(content, 'You are an expert in identifying military vehicles from simulation images')
+        self._add_text_line(content, "You are an expert in identifying military vehicles / military weapon systems from simulation images.")
         self._add_text_line(content,f"You receive {num_of_objects} patches of images from a military simulation and you must classify the military vehicle in the image, based only on the vehicle structure and mounted weapon system. Ignore background, terrain, and camera angle.")
         self._add_text_line(content,"CRITICAL RULE: Accuracy is more important than identification. If structural features are missing or ambiguous, you MUST label as 'Uncertain' or 'none'.")
         self._add_text_line(content,"Base your decision ONLY on visible structural features (e.g., wheels vs tracks, turret type, missile placement, number of missiles).")
-        self._add_text_line(content, "Do NOT rely on color, background")
+        #self._add_text_line(content, "Do NOT rely on color, background")
 
         self._add_text_line(content, "VISUAL DIFFERENTIATORS")
 
-        self._add_text_line(content, f"{LAUNCHERS}")
-        self._add_text_line(content, "1. Rocket / Missile Launchers / MLRS")
-        self._add_text_line(content, "2. Deliver long-range missiles or rockets, usually indirect fire")
-        self._add_text_line(content,"3. Long tube arrays mounted on a mobile vehicle")
+        self._add_text_line(content, f"\nVISUAL DEFINITIONS:")
+        self._add_text_line(content,f"- {LAUNCHERS}: a long missile canisters mounted on a mobile vehicle. Long-range/indirect fire systems. May sometimes feature a flat rectangular roof structure above the launcher assembly. Examples: {L_LAUNCHERS_NAMES_EXAMPLES}")
+        self._add_text_line(content,f"- {ANTI_AIRCRAFT}: Truck or tracked system with visible radar dish/sensors, or short-to-medium range anti-air missile/gun setups. Examples: {L_ANTI_AIRCRAFT_NAMES_EXAMPLES}")
+        self._add_text_line(content,f"- {TANK}: Main Battle Tanks. Heavy tracked chassis with a prominent main gun turret. No radar arrays or exposed long missile tubes.")
 
-        self._add_text_line(content, f"{ANTI_AIRCRAFT}")
-        self._add_text_line(content, "1. A truck‑mounted system")
-        self._add_text_line(content, "2. Anti-aircraft vehicles often have visible radar or sensor systems mounted on top.")
+        self._add_text_line(content, f"Reject {TANK} if:")
+        self._add_text_line(content, "1. Reject if a radar system or a single large missile is visible.")
 
-        self._add_text_line(content, f"{TANK}")
-        self._add_text_line(content, "1. Main Battle Tanks")
-        self._add_text_line(content, "2. No radar / missile tubes:")
+        self._add_text_line(content, f"Reject {LAUNCHERS} if:")
+        self._add_text_line(content, "1. Reject if a visible radar system is present or if the vehicle is carrying more than one missile.")
+
+        self._add_text_line(content, f"Reject {ANTI_AIRCRAFT} if:")
+        self._add_text_line(content,"1. Reject if the vehicle is carrying a single large missile.")
+        self._add_text_line(content,"2. flat rectangular roof structure.")
+
+
+        # TODO:
+        if use_few_shots:
+            self._add_text_line(content, "Examples:")
+            self._add_image_line(content, f"{dict_family[LAUNCHERS][0]['file']}")
+            self._add_text_line(content, f"{dict_family[LAUNCHERS][0]['Description']} Answer: {LAUNCHERS}")
+            self._add_image_line(content, f"{dict_family[LAUNCHERS][1]['file']}")
+            self._add_text_line(content, f"{dict_family[LAUNCHERS][1]['Description']} Answer: {LAUNCHERS}")
+
+            self._add_image_line(content, f"{dict_family[ANTI_AIRCRAFT][0]['file']}")
+            self._add_text_line(content, f"{dict_family[ANTI_AIRCRAFT][0]['Description']} Answer: {ANTI_AIRCRAFT}")
+            self._add_image_line(content, f"{dict_family[ANTI_AIRCRAFT][1]['file']}")
+            self._add_text_line(content, f"{dict_family[ANTI_AIRCRAFT][1]['Description']} Answer: {ANTI_AIRCRAFT}")
+
+            self._add_image_line(content, f"{dict_family[TANK][0]['file']}")
+            self._add_text_line(content, f"{dict_family[TANK][0]['Description']} Answer: {TANK}")
+
 
                 # --- no guess
         # add_text_line(content, 'If an image is too blurry to identify, label it as "Uncertain"')
@@ -274,8 +343,12 @@ class VlmModel():
         ]
         return messages
 
-    def classify_family_objects(self, num_of_objects):
-        messages = self._get_family_classification_prompt(num_of_objects)
+    def classify_family_objects(self, num_of_objects, use_few_shots=True):
+        messages = self._get_family_classification_prompt(num_of_objects, use_few_shots)
+
+        LAUNCHERS     = "Launchers vehicle"
+        ANTI_AIRCRAFT = "Anti aircraft vehicle"
+        TANK          = "Tank"
 
         schema = {
             "type": "object",
@@ -291,7 +364,7 @@ class VlmModel():
                             },
                             "classification": {
                                 "type": "string",
-                                "enum": ["Class_1", "Class_2", "Class_3", "none", "Uncertain"]
+                                "enum": [f"{LAUNCHERS}", f"{ANTI_AIRCRAFT}", f"{TANK}", "none", "Uncertain"]
                             }
                         },
                         "required": ["visual_evidence", "classification"]

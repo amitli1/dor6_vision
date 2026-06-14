@@ -31,91 +31,9 @@ class ImageDescription:
     def _prepare_image_description_prompt(self, image_path):
 
         content = []
-        prompt = """
-            You are analyzing a single simulation image of a military vehicle or weapon system.
-            
-            Your task is to describe only what is visually observable in the image. Do NOT identify, classify, name, or guess the type, model, manufacturer, country, or intended role of the system.
-            
-            General rules:
-            
-            * Base your answer only on visible evidence in the image.
-            * If a detail cannot be determined confidently, write "Not visible" or "Cannot determine from image".
-            * Do not infer hidden components.
-            * Do not speculate.
-            * Do not use yes/no answers.
-            * Do not assume an object exists unless visual evidence supports it.
-            * Be precise and quantitative whenever possible.
-            
-            Provide your answer in the following format:
-            
-            ## Radar and Sensor Structures
-            
-            Describe every radar-like, antenna-like, dish-like, panel-like, or sensor structure that is visible.
-            
-            For each structure provide:
-            
-            * Approximate location on the vehicle (front, rear, left side, right side, roof, turret, mast, etc.)
-            * Approximate size relative to the vehicle (small, medium, large, estimated percentage of vehicle height/width if possible)
-            * Shape and appearance
-            
-            If no such structure is visible, state:
-            "Radar or sensor structures not visibly identifiable."
-            
-            ## Missile Inventory
-            
-                Describe all missile-like objects that are visible.
-            
-            Provide:
-            
-                * Number of visible missiles
-                * Number of launch tubes or launch containers if visible
-                * Arrangement (single row, double row, clustered, stacked, etc.)
-                * Approximate location on the vehicle                
-            
-            If the count is uncertain, explain why.
-            
-            ## Wheel Analysis
-            
-                Describe the wheel configuration.
-            
-            Provide:
-            
-                * Number of visible wheels
-                * Estimated total wheel count for the vehicle (only if supported by visual evidence)
-                * Wheel arrangement by side if visible
-            
-            If the total number cannot be determined, explain what is visible and what is occluded.
-            
-            ## Other Notable Visual Properties
-            
-                List any visually interesting or distinctive characteristics, such as:
-            
-                    * Large antennas
-                    * Masts
-                    * Stabilizers
-                    * Launch platforms
-                    * Turrets
-                    * Camouflage patterns
-                    * Support structures
-                    * Unusual geometry
-                    * Elevated components
-                    * Containers or pods
-                    * Tracks instead of wheels
-                    * Any other prominent visual feature
-            
-                For each observation:
-            
-                    * Describe the feature
-                    * Describe its location
-                    * Explain the visual evidence supporting the observation
-            
-            ## Final Objective Description
-            
-                Provide a concise neutral description (3-8 sentences) summarizing the visible structure, layout, and major components of the system.
-                
-                Do not classify the system, identify its type, or infer its purpose.
+        with open("Prompts/image_description_prompt.txt", "r", encoding="utf-8") as f:
+            prompt = f.read()
 
-        """
         self._add_text_line(content, prompt)
         self._add_text_line(content, f"Image to describe:")
         self._add_image_line(content, image_path)
@@ -127,7 +45,7 @@ class ImageDescription:
         ]
         return messages
 
-    def get_image_description(self, image_path):
+    def get_image_description(self, image_path, max_soft_tokens):
 
         prompt = self._prepare_image_description_prompt(image_path)
 
@@ -139,23 +57,67 @@ class ImageDescription:
             seed=42,
             extra_body={
                 "mm_processor_kwargs": {
-                    "max_soft_tokens": 1120
+                    "max_soft_tokens": max_soft_tokens
                 }
             }
         )
         res_text = response.choices[0].message.content
         return res_text
 
+
+def get_few_shots_files():
+    FEW_SHOTS_FOLDER = '/home/amitli/repo/dor6_vision/Code_Train_B/Few_Shots/Targets/'
+    LAUNCHER_SCUD_EXAMPE = rf'{FEW_SHOTS_FOLDER}/Scud/2_884400_119_09-57-12.jpg'
+    LAUNCHER_ISKANDER_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Iskander/3_1364400_384_09-59-20.jpg'
+    LAUNCGER_SS_21_EXAMPLE = f'{FEW_SHOTS_FOLDER}/SS-21/3_1324400_366_09-58-46.jpg'  # ??? no missile
+
+    ANTI_AIRCRAFT_SA_17_EXAMPLE = f'{FEW_SHOTS_FOLDER}/SA-17/2_884400_441_09-57-12.jpg'
+    ANTI_AIRCRAFT_SA_22_EXAMPLE = f'{FEW_SHOTS_FOLDER}/SA-22/1_524400_500_09-56-15.jpg'
+    ANTI_AIRCRAFT_TIN_SHIELD_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Tin_Shield/3_1364400_274_09-59-20.jpg'
+    ANTI_AIRCRAFT_GRAVE_STONE_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Grave_Stone/3_1244400_166_09-58-27.jpg'
+    ANTI_AIRCRAFT_BIG_BIRD_EXAMPLE = f'{FEW_SHOTS_FOLDER}/Big_Bird/3_1324400_343_09-58-46.jpg'
+
+    TANK_T_90_EXAMPLE = f'{FEW_SHOTS_FOLDER}/T-90/3_1284400_190_09-59-02.jpg'
+
+    l_few_shots_files = [LAUNCHER_SCUD_EXAMPE,
+                         LAUNCHER_ISKANDER_EXAMPLE,
+                         LAUNCGER_SS_21_EXAMPLE,
+                         ANTI_AIRCRAFT_SA_17_EXAMPLE,
+                         ANTI_AIRCRAFT_SA_22_EXAMPLE,
+                         ANTI_AIRCRAFT_TIN_SHIELD_EXAMPLE,
+                         ANTI_AIRCRAFT_GRAVE_STONE_EXAMPLE,
+                         ANTI_AIRCRAFT_BIG_BIRD_EXAMPLE,
+                         TANK_T_90_EXAMPLE]
+
+    return l_few_shots_files
+
 if __name__ == "__main__":
     imageDescription = ImageDescription()
-    l_targets = glob.glob('/home/amitli/repo/dor6_vision/Code_Train_B/Few_Shots/Targets/*')
-    for target_folder in l_targets:
-        l_target_files = glob.glob(target_folder + '/*.jpg')
-        for target_file in l_target_files:
-            result = imageDescription.get_image_description(target_file)
-            print("\n")
-            print("*" * 50)
-            print(result)
-            print("\n")
-        break
+    l_files = get_few_shots_files()
+    for target_file in l_files:
+        print(f'-'*50)
+        print(f'{target_file}')
+        result = imageDescription.get_image_description(target_file, 280)
+        print(result)
+        print("\n")
+
+        # 1. **Visual Evidence:** Wheeled platform, no visible radar, carrying a single large missile.
+        #
+        # 2. **Visual Evidence:** No missiles or multiple missiles visible; radar or radar array may be present; vehicle appears configured for target tracking.
+        #
+        # 3. **Visual Evidence:** Continuous tracks (tracked vehicle), no visible radar, equipped with a large main gun barrel.
+
+
+
+
+    # l_targets = glob.glob('/home/amitli/repo/dor6_vision/Code_Train_B/Few_Shots/Targets/*')
+    # for target_folder in l_targets:
+    #     l_target_files = glob.glob(target_folder + '/*.jpg')
+    #     for target_file in l_target_files:
+    #         result = imageDescription.get_image_description(target_file)
+    #         print("\n")
+    #         print("*" * 50)
+    #         print(result)
+    #         print("\n")
+    #     break
 

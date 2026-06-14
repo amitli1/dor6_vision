@@ -19,11 +19,11 @@
 
 
 # With Gemma4 Crop (Validation):
-|                | Anti aircraft | Launchers | Tank  |
-|----------------|---------------|-----------|-------|
-| Anti aircraft  | 5.71          | 14.29     | 8.57  |
-| Launchers      | 0             | 71.43     | 0     |
-| Tank           | 0             | 0.00      | 87.50 |
+|                | Anti aircraft | Launchers | Tank  | Uncertain |
+|----------------|---------------|-----------|-------|-----------|
+| Anti aircraft  | 79.10         | 5.97      | 0     | 13.43     |
+| Launchers      | 20.83         | 62.50     | 0     |
+| Tank           | 6.90          | 0.00      | 93.10 |
 
 
 

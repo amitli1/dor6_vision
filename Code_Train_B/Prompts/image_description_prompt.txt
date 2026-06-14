@@ -1,0 +1,13 @@
+You are an expert military intelligence analyst tasked with creating training examples for a vehicle classification model.
+
+Analyze the provided image crop of a military vehicle and extract its physical characteristics. Be objective and focus purely on structure. Ignore background terrain, color, or image quality artifacts.
+
+Fill out the following analysis fields:
+1. Chassis Type: Are there wheels (how many if visible) or continuous tracks?
+2. Upper Structure / Weapon System: Is there a large main gun barrel, a cluster of long missile canisters/tubes, or smaller anti-aircraft guns/missiles?
+3. Sensors / Radar: Is there a visible radar dish, rotating scanner, or large sensor box mounted on the vehicle?
+4. Key Discriminator: What is the single most defining structural feature that rules out other vehicle classes?
+
+Based on your analysis, write a 1-2 sentence "Visual Evidence" statement summary following this exact template: "I see [wheels/tracks], [missiles/gun/tubes], [radar/no radar]."
+
+Finally, determine which category this falls into: ["Launchers vehicle", "Anti aircraft vehicle", "Tank", "none", "Uncertain"].
