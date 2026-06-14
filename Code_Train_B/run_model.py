@@ -56,8 +56,8 @@ def draw_result(df, full_path):
         x2 = x_center + bw / 2
         y2 = y_center + bh / 2
 
-        #draw.rectangle([x1, y1, x2, y2], outline="green", width=1)
-        draw.text((x1 + 50, y1), label, fill="green", font=font)
+        draw.rectangle([x1, y1, x2, y2], outline="green", width=1)
+        draw.text((x1 + 50, y1), f"GT: {label}", fill="green", font=font)
 
 
     for i in range(len(l_model_bb)):
@@ -70,7 +70,8 @@ def draw_result(df, full_path):
         bottom = ymax * img_h / 1000
 
         draw.rectangle([left, top, right, bottom], outline="red", width=1)
-        draw.text((left + 100, top), l_model_family[i].replace('none', 'Other'), fill="red", font=font)
+        label =  l_model_family[i].replace('none', 'Other')
+        draw.text((left + 100, top),f"Pred: {label}", fill="red", font=font)
 
     img.show()
 
@@ -116,8 +117,8 @@ def calc_statistics(boundingBoxMatcher, df):
 
     jpg_file       = df['jpg_file'].values[0]
 
-    # if jpg_file == '1_524400_186_14-51-38.jpg':
-    #     None
+    if jpg_file == '1_564400_524_14-50-09.jpg':
+        None
 
     gt_count       = df['gt_count'].values[0]
     l_gt_bb        = df['gt_bb'].values[0]
@@ -206,16 +207,21 @@ def print_statisics_not_in_gt(df):
 
 def print_statisics(df):
 
+    # calc BB statiscs
+    bb_count = df.bb_count.sum()
+    gt_count = df.gt_count.sum()
+    print(f"BB: {bb_count} | {gt_count}, {(bb_count/gt_count):.2f})%")
+
+    df_tmp = df[['jpg_file', 'gt_count', 'bb_count']]
+    #print(df_tmp.head(50))
+
     # 1. fillter and calc statiscs only on founded bouding boxes
     df = df[df.model_family != 'Not_Found']
 
     # show confustion matrix only on GT family:
     df = df[df['gt_family'].isin(['Anti aircraft', 'Launchers', 'Tank'])]
 
-    bb_count = df.bb_count.sum()
-    gt_count = df.gt_count.sum()
-    print(f"BB: {bb_count} | {gt_count}, {(bb_count/gt_count):.2f})%")
-    l_gt_fam    = df.gt_family.values
+    l_gt_fam = df.gt_family.values
     l_model_fam = df.model_family.values
 
     # unique_true = np.unique(l_gt_fam)
@@ -244,15 +250,14 @@ def print_statisics(df):
     # col - Model
 
 
-def get_results(pkl_result_file):
+def get_results(pkl_result_file, bb_threshold):
 
-    boundingBoxMatcher   = BoundingBoxMatcher(threshold=0.8, criterion='iog')
+    boundingBoxMatcher   = BoundingBoxMatcher(threshold=bb_threshold, criterion='iog')
     l_statistics_results = []
     df                   = pd.read_pickle(pkl_result_file)
 
     for i in range(len(df)):
         df_current = df[df.jpg_file == df.jpg_file[i]]
-        # draw_result(df_current, f'{jpg_files_path}/Images')
         statistics_results = calc_statistics(boundingBoxMatcher, df_current)
         l_statistics_results.append(statistics_results)
 
@@ -264,9 +269,10 @@ def get_results(pkl_result_file):
 
 if __name__ == "__main__":
 
-    RUN_MODEL   = False
-    DB_TYPE     = "Validation" # "Train" / "Validation"
-    USE_MOLMO   = False
+    RUN_MODEL    = False
+    DB_TYPE      = "Validation" # "Train" / "Validation"
+    USE_MOLMO    = False
+    DRAW_RESULTS = False
 
     molmo_fname = ""
     if USE_MOLMO:
@@ -285,8 +291,16 @@ if __name__ == "__main__":
         pkl_result_file   = f'/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_results{molmo_fname}.pkl'
         pkl_input_db_file = '/home/amitli/repo/dor6_vision/Code_Train_B/Pickles/validation_db.pkl'
 
+    if DRAW_RESULTS:
+        file_name = '1_564400_524_14-50-09.jpg'
+        file_name = '1_564400_141_14-50-09.jpg'
+        df        = pd.read_pickle(pkl_result_file)
+        df_sample = df[df.jpg_file == file_name]
+        draw_result(df_sample, f"{jpg_files_path}/Images")
+        exit(0)
+
     if RUN_MODEL is False:
-       get_results(pkl_result_file)
+       get_results(pkl_result_file, bb_threshold=0.4)
 
     # df                      = pd.read_pickle(pkl_input_db_file)
     # df                      = df[df['num_gt'] > 0]
